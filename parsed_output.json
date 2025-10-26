@@ -1,0 +1,91 @@
+{
+  "filename": "test-photoshop-doc.psd",
+  "width": 1200,
+  "height": 1500,
+  "layers": [
+    {
+      "name": "Background",
+      "type": "image",
+      "visible": true,
+      "path": "Background",
+      "bbox": {
+        "left": 0,
+        "top": 0,
+        "right": 1200,
+        "bottom": 1500
+      },
+      "width": 1200,
+      "height": 1500
+    },
+    {
+      "name": "green_yellow_bg",
+      "type": "smartobject",
+      "visible": true,
+      "path": "green_yellow_bg",
+      "bbox": {
+        "left": -5,
+        "top": -7,
+        "right": 1205,
+        "bottom": 1507
+      },
+      "width": 1210,
+      "height": 1514
+    },
+    {
+      "name": "cutout",
+      "type": "smartobject",
+      "visible": true,
+      "path": "cutout",
+      "bbox": {
+        "left": 515,
+        "top": 20,
+        "right": 1167,
+        "bottom": 1500
+      },
+      "width": 652,
+      "height": 1480
+    },
+    {
+      "name": "BEN FORMAN",
+      "type": "text",
+      "visible": true,
+      "path": "BEN FORMAN",
+      "bbox": {
+        "left": 72,
+        "top": 269,
+        "right": 316,
+        "bottom": 307
+      },
+      "width": 244,
+      "height": 38
+    },
+    {
+      "name": "ELOISE GRACE",
+      "type": "text",
+      "visible": true,
+      "path": "ELOISE GRACE",
+      "bbox": {
+        "left": 73,
+        "top": 387,
+        "right": 335,
+        "bottom": 426
+      },
+      "width": 262,
+      "height": 39
+    },
+    {
+      "name": "EMMA LOUISE",
+      "type": "text",
+      "visible": true,
+      "path": "EMMA LOUISE",
+      "bbox": {
+        "left": 74,
+        "top": 508,
+        "right": 328,
+        "bottom": 547
+      },
+      "width": 254,
+      "height": 39
+    }
+  ]
+}
