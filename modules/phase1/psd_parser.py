@@ -90,14 +90,20 @@ def _extract_layers(psd_or_group, parent_path: str = "") -> List[Dict[str, Any]]
 
         # Add dimensions if available
         if bbox:
+            # Handle bbox - can be tuple (x1, y1, x2, y2) or object with attributes
+            if isinstance(bbox, tuple) and len(bbox) == 4:
+                x1, y1, x2, y2 = bbox
+            else:
+                x1, y1, x2, y2 = bbox.x1, bbox.y1, bbox.x2, bbox.y2
+
             layer_info["bbox"] = {
-                "left": bbox.x1,
-                "top": bbox.y1,
-                "right": bbox.x2,
-                "bottom": bbox.y2
+                "left": x1,
+                "top": y1,
+                "right": x2,
+                "bottom": y2
             }
-            layer_info["width"] = bbox.width
-            layer_info["height"] = bbox.height
+            layer_info["width"] = x2 - x1
+            layer_info["height"] = y2 - y1
 
         # If it's a group, recursively extract child layers
         if layer_type == "group":
