@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AfterEffectsProject xmlns="http://www.adobe.com/products/aftereffects" majorVersion="1" minorVersion="0">
+  <ProjectSettings>
+    <Name>Split Screen Template</Name>
+    <Width>1920</Width>
+    <Height>1080</Height>
+    <FrameRate>30</FrameRate>
+  </ProjectSettings>
+
+  <Items>
+    <!-- Main Composition -->
+    <Composition id="1" name="Split Screen">
+      <Width>1920</Width>
+      <Height>1080</Height>
+      <Duration>10.0</Duration>
+      <FrameRate>30</FrameRate>
+
+      <Layers>
+        <!-- Text Layers -->
+        <Layer id="1" type="Text">
+          <Name>player1fullname</Name>
+          <Source>Text Layer</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+          <TextContent>Player 1 Name</TextContent>
+        </Layer>
+
+        <Layer id="2" type="Text">
+          <Name>player2fullname</Name>
+          <Source>Text Layer</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+          <TextContent>Player 2 Name</TextContent>
+        </Layer>
+
+        <Layer id="3" type="Text">
+          <Name>player3fullname</Name>
+          <Source>Text Layer</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+          <TextContent>Player 3 Name</TextContent>
+        </Layer>
+
+        <!-- Image Placeholder -->
+        <Layer id="4" type="Image">
+          <Name>featuredimage1</Name>
+          <Source>Placeholder</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+          <Width>640</Width>
+          <Height>480</Height>
+        </Layer>
+
+        <!-- Background -->
+        <Layer id="5" type="Solid">
+          <Name>Background</Name>
+          <Source>Solid</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>false</IsPlaceholder>
+          <Color>#1a1a1a</Color>
+        </Layer>
+
+        <!-- Shape Layer -->
+        <Layer id="6" type="Shape">
+          <Name>Divider Line</Name>
+          <Source>Shape</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>10.0</Duration>
+          <IsPlaceholder>false</IsPlaceholder>
+        </Layer>
+      </Layers>
+    </Composition>
+
+    <!-- Additional Composition -->
+    <Composition id="2" name="Player Card">
+      <Width>640</Width>
+      <Height>360</Height>
+      <Duration>5.0</Duration>
+      <FrameRate>30</FrameRate>
+
+      <Layers>
+        <Layer id="7" type="Text">
+          <Name>playername</Name>
+          <Source>Text Layer</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>5.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+        </Layer>
+
+        <Layer id="8" type="Image">
+          <Name>playerphoto</Name>
+          <Source>Placeholder</Source>
+          <StartTime>0.0</StartTime>
+          <Duration>5.0</Duration>
+          <IsPlaceholder>true</IsPlaceholder>
+        </Layer>
+      </Layers>
+    </Composition>
+  </Items>
+
+  <FootageItems>
+    <Footage id="101" name="Sample Image">
+      <Type>Image</Type>
+      <FilePath>/path/to/sample.png</FilePath>
+    </Footage>
+  </FootageItems>
+</AfterEffectsProject>

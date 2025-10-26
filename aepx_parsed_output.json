@@ -1,0 +1,100 @@
+{
+  "filename": "test-after-effects-project.aepx",
+  "composition_name": "Split Screen",
+  "compositions": [
+    {
+      "name": "Split Screen",
+      "width": 1920,
+      "height": 1080,
+      "duration": 10.0,
+      "layers": [
+        {
+          "name": "player1fullname",
+          "type": "text",
+          "is_placeholder": true
+        },
+        {
+          "name": "player2fullname",
+          "type": "text",
+          "is_placeholder": true
+        },
+        {
+          "name": "player3fullname",
+          "type": "text",
+          "is_placeholder": true
+        },
+        {
+          "name": "featuredimage1",
+          "type": "image",
+          "is_placeholder": true
+        },
+        {
+          "name": "Background",
+          "type": "solid",
+          "is_placeholder": false
+        },
+        {
+          "name": "Divider Line",
+          "type": "shape",
+          "is_placeholder": false
+        }
+      ]
+    },
+    {
+      "name": "Player Card",
+      "width": 640,
+      "height": 360,
+      "duration": 5.0,
+      "layers": [
+        {
+          "name": "playername",
+          "type": "text",
+          "is_placeholder": true
+        },
+        {
+          "name": "playerphoto",
+          "type": "image",
+          "is_placeholder": true
+        }
+      ]
+    }
+  ],
+  "placeholders": [
+    {
+      "name": "player1fullname",
+      "type": "text",
+      "layer_name": "player1fullname",
+      "composition": "Split Screen"
+    },
+    {
+      "name": "player2fullname",
+      "type": "text",
+      "layer_name": "player2fullname",
+      "composition": "Split Screen"
+    },
+    {
+      "name": "player3fullname",
+      "type": "text",
+      "layer_name": "player3fullname",
+      "composition": "Split Screen"
+    },
+    {
+      "name": "featuredimage1",
+      "type": "image",
+      "layer_name": "featuredimage1",
+      "composition": "Split Screen"
+    },
+    {
+      "name": "playername",
+      "type": "text",
+      "layer_name": "playername",
+      "composition": "Player Card"
+    },
+    {
+      "name": "playerphoto",
+      "type": "image",
+      "layer_name": "playerphoto",
+      "composition": "Player Card"
+    }
+  ]
+}
