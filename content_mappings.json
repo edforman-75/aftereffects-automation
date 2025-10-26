@@ -1,0 +1,40 @@
+{
+  "mappings": [
+    {
+      "psd_layer": "BEN FORMAN",
+      "aepx_placeholder": "player1fullname",
+      "type": "text",
+      "confidence": 1.0,
+      "reason": "Sequential match: 1th text layer \u2192 1th text placeholder"
+    },
+    {
+      "psd_layer": "ELOISE GRACE",
+      "aepx_placeholder": "player2fullname",
+      "type": "text",
+      "confidence": 1.0,
+      "reason": "Sequential match: 2th text layer \u2192 2th text placeholder"
+    },
+    {
+      "psd_layer": "EMMA LOUISE",
+      "aepx_placeholder": "player3fullname",
+      "type": "text",
+      "confidence": 1.0,
+      "reason": "Sequential match: 3th text layer \u2192 3th text placeholder"
+    },
+    {
+      "psd_layer": "cutout",
+      "aepx_placeholder": "featuredimage1",
+      "type": "image",
+      "confidence": 0.6000000000000001,
+      "reason": "Name similarity match (score: 0.60), smartobject type"
+    }
+  ],
+  "unmapped_psd_layers": [
+    "green_yellow_bg",
+    "Background"
+  ],
+  "unfilled_placeholders": [
+    "playername",
+    "playerphoto"
+  ]
+}
