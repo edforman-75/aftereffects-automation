@@ -49,8 +49,9 @@ class ProjectService(BaseService):
     """Service for managing projects and graphics"""
 
     def __init__(self, logger, settings, psd_service=None, aepx_service=None,
-                 matching_service=None, preview_service=None, expression_applier_service=None):
-        super().__init__(logger)
+                 matching_service=None, preview_service=None, expression_applier_service=None,
+                 enhanced_logging=None):
+        super().__init__(logger, enhanced_logging=enhanced_logging)
         self.settings = settings
         self.store = ProjectStore('projects.json')
         self.batch_processor = BatchProcessor(logger)

@@ -72,6 +72,7 @@ def _generate_script_content(psd_data: Dict, aepx_data: Dict,
         if psd_layer and 'text' in psd_layer:
             text_replacements.append({
                 'placeholder': mapping['aepx_placeholder'],
+                'psd_layer': mapping['psd_layer'],
                 'content': psd_layer['text']['content'],
                 'font_size': psd_layer['text'].get('font_size', None),
                 'color': psd_layer['text'].get('color', None)
@@ -97,10 +98,11 @@ def _generate_script_content(psd_data: Dict, aepx_data: Dict,
     # Generate script sections
     header = _generate_header(psd_data, aepx_data, opts)
     helpers = _generate_helper_functions()
+    psd_helpers = _generate_psd_import_functions()
     main = _generate_main_function(text_replacements, image_replacements, opts, aepx_data)
     footer = _generate_footer()
 
-    return f"{header}\n\n{helpers}\n\n{main}\n\n{footer}"
+    return f"{header}\n\n{helpers}\n\n{psd_helpers}\n\n{main}\n\n{footer}"
 
 
 def _generate_header(psd_data: Dict, aepx_data: Dict, opts: Dict) -> str:
@@ -125,7 +127,7 @@ def _generate_header(psd_data: Dict, aepx_data: Dict, opts: Dict) -> str:
 
 // Configuration
 var CONFIG = {{
-    psdFile: "{_escape_path(opts['psd_file_path'])}",
+    psdFile: "{_escape_path(str(Path(opts['psd_file_path']).resolve()))}",
     outputProject: "{_escape_path(opts['output_project_path'])}",
     renderOutput: {str(opts['render_output']).lower()},
     renderPath: "{_escape_path(opts['render_path'])}",
@@ -241,6 +243,82 @@ function logMessage(message) {
 }"""
 
 
+def _generate_psd_import_functions() -> str:
+    """Generate functions for importing and using PSD layers."""
+
+    return """// PSD Import Functions
+
+function importPSDAsComp(psdFilePath) {
+    /*
+     * Import PSD file as composition with all layers.
+     * Returns the imported composition or null if failed.
+     */
+    try {
+        var psdFile = new File(psdFilePath);
+        if (!psdFile.exists) {
+            logMessage("ERROR: PSD file not found: " + psdFilePath);
+            return null;
+        }
+
+        // Import PSD as composition
+        var importOptions = new ImportOptions(psdFile);
+        importOptions.importAs = ImportAsType.COMP;
+        importOptions.sequence = false;
+
+        var importedItem = app.project.importFile(importOptions);
+
+        if (importedItem instanceof CompItem) {
+            logMessage("✓ Imported PSD as composition: " + importedItem.name);
+            return importedItem;
+        } else {
+            logMessage("ERROR: PSD import did not create a composition");
+            return null;
+        }
+    } catch (e) {
+        logMessage("ERROR importing PSD: " + e.toString());
+        return null;
+    }
+}
+
+function findLayerInComp(comp, layerName) {
+    /*
+     * Find a layer by name in a composition.
+     * Searches through all layers including nested.
+     */
+    for (var i = 1; i <= comp.numLayers; i++) {
+        var layer = comp.layer(i);
+        if (layer.name === layerName || layer.name.indexOf(layerName) !== -1) {
+            return layer;
+        }
+    }
+    return null;
+}
+
+function copyLayerToComp(sourceLayer, targetComp, newName) {
+    /*
+     * Duplicate a layer from source to target composition.
+     * Returns the new layer or null if failed.
+     */
+    try {
+        // Duplicate the source layer
+        var newLayer = sourceLayer.duplicate();
+
+        // Move to target composition
+        newLayer.moveTo(targetComp, 1);
+
+        // Rename if needed
+        if (newName) {
+            newLayer.name = newName;
+        }
+
+        return newLayer;
+    } catch (e) {
+        logMessage("ERROR copying layer: " + e.toString());
+        return null;
+    }
+}"""
+
+
 def _generate_main_function(text_replacements: list, image_replacements: list,
                             opts: Dict, aepx_data: Dict) -> str:
     """Generate the main execution function."""
@@ -259,15 +337,22 @@ def _generate_main_function(text_replacements: list, image_replacements: list,
 
         font_size = tr['font_size'] if tr['font_size'] else "null"
         escaped_text = _escape_js_string(tr['content'])
+        escaped_psd_layer = _escape_js_string(tr['psd_layer'])
 
         text_updates.append(f"""
-    // Update text: {tr['placeholder']}
-    layer = findLayerByName(comp, "{tr['placeholder']}");
+    // Update text: {tr['placeholder']} with content from PSD layer: {tr['psd_layer']}
+    layer = findLayerByName(comp, "{escaped_psd_layer}");
     if (layer) {{
-        logMessage("Updating text layer: {tr['placeholder']}");
+        logMessage("Updating PSD text layer: {escaped_psd_layer}");
         updateTextLayer(layer, "{escaped_text}", {font_size}, {color_str});
+
+        // Also hide template placeholder if it exists
+        var templateLayer = findLayerByName(comp, "{tr['placeholder']}");
+        if (templateLayer && templateLayer !== layer) {{
+            templateLayer.enabled = false;  // Hide template placeholder
+        }}
     }} else {{
-        logMessage("WARNING: Layer not found: {tr['placeholder']}");
+        logMessage("WARNING: PSD layer not found: {escaped_psd_layer}");
     }}""")
 
     # Build image update code
@@ -339,9 +424,31 @@ function main() {{
         logMessage("Found composition: " + comp.name);
         logMessage("");
 
-        var layer;
+        // Import PSD as composition
+        logMessage("Importing PSD file...");
+        var psdComp = importPSDAsComp(CONFIG.psdFile);
 
-        // Update text layers
+        if (!psdComp) {{
+            alert("ERROR: Failed to import PSD file!");
+            return;
+        }}
+
+        logMessage("PSD composition has " + psdComp.numLayers + " layers");
+        logMessage("");
+
+        var layer;
+        var psdLayer;
+
+        // Copy all PSD layers to template comp for reference
+        logMessage("Copying PSD layers to composition...");
+        for (var i = psdComp.numLayers; i >= 1; i--) {{
+            var srcLayer = psdComp.layer(i);
+            logMessage("  Copying layer: " + srcLayer.name);
+            copyLayerToComp(srcLayer, comp, srcLayer.name);
+        }}
+        logMessage("");
+
+        // Update text layers with new content
         logMessage("Updating text layers...");
 {text_code}
         logMessage("");

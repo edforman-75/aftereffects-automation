@@ -28,14 +28,15 @@ class ValidationService(BaseService):
     - Clear error and warning messages
     """
 
-    def __init__(self, logger):
+    def __init__(self, logger, enhanced_logging=None):
         """
         Initialize validation service
 
         Args:
             logger: Logger instance
+            enhanced_logging: EnhancedLoggingService instance (optional)
         """
-        super().__init__(logger)
+        super().__init__(logger, enhanced_logging=enhanced_logging)
 
         # Configurable limits
         self.max_psd_size = 500 * 1024 * 1024  # 500MB

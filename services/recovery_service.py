@@ -23,15 +23,16 @@ class RecoveryService(BaseService):
     - Retry statistics and tracking
     """
 
-    def __init__(self, logger, project_service):
+    def __init__(self, logger, project_service, enhanced_logging=None):
         """
         Initialize recovery service
 
         Args:
             logger: Logger instance
             project_service: ProjectService instance for accessing projects
+            enhanced_logging: EnhancedLoggingService instance (optional)
         """
-        super().__init__(logger)
+        super().__init__(logger, enhanced_logging=enhanced_logging)
         self.project_service = project_service
 
     def retry_graphic(

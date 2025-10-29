@@ -20,8 +20,8 @@ from reportlab.lib.units import inch
 class ExportService(BaseService):
     """Handle project export operations"""
 
-    def __init__(self, logger):
-        super().__init__(logger)
+    def __init__(self, logger, enhanced_logging=None):
+        super().__init__(logger, enhanced_logging=enhanced_logging)
 
     def export_project(
         self,

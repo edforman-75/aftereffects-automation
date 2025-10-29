@@ -76,6 +76,8 @@ class PSDService(BaseService):
         """
         Extract list of fonts used in the PSD.
 
+        Recursively processes all layers including nested groups.
+
         Args:
             psd_data: Parsed PSD data dictionary
 
@@ -92,15 +94,26 @@ class PSDService(BaseService):
             if 'layers' not in psd_data:
                 return Result.failure("PSD data missing 'layers' field")
 
-            # Extract fonts from text layers
+            # Extract fonts from text layers (recursively)
             fonts = set()
-            layers = psd_data.get('layers', [])
 
-            for layer in layers:
-                if layer.get('type') == 'text':
-                    font_name = layer.get('text', {}).get('font')
-                    if font_name:
-                        fonts.add(font_name)
+            def extract_from_layers(layers):
+                """Recursively extract fonts from layers."""
+                for layer in layers:
+                    # Check if layer has text information
+                    if layer.get('type') == 'text' and 'text' in layer:
+                        font_name = layer['text'].get('font')
+                        if font_name:
+                            fonts.add(font_name)
+                            self.log_debug(f"Found font: {font_name} in layer '{layer.get('name')}'")
+
+                    # Recursively process child layers (groups)
+                    if 'children' in layer and layer['children']:
+                        extract_from_layers(layer['children'])
+
+            # Process all layers
+            layers = psd_data.get('layers', [])
+            extract_from_layers(layers)
 
             font_list = sorted(list(fonts))
             self.log_info(f"Extracted {len(font_list)} unique fonts")

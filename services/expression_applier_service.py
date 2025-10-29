@@ -108,14 +108,15 @@ class ExpressionApplierService(BaseService):
     - Naming conventions and common patterns
     """
 
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, enhanced_logging=None):
         """
         Initialize the Expression Applier Service.
 
         Args:
             logger: Logger instance for logging operations
+            enhanced_logging: EnhancedLoggingService instance (optional)
         """
-        super().__init__(logger)
+        super().__init__(logger, enhanced_logging=enhanced_logging)
         self.expression_generator = ExpressionGenerator()
         self.all_variables = StandardVariables.get_all_variables()
 

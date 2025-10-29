@@ -28,6 +28,7 @@ from modules.phase5.preview_generator import generate_preview, check_aerender_av
 
 # Service layer (new architecture)
 from config.container import container
+from services.font_service import FontService
 
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
@@ -332,15 +333,38 @@ def upload_files():
             aepx_data = aepx_result.get_data()
 
         # Extract fonts using service
+        # IMPORTANT: If parse_method is 'photoshop', the psd_data already has correct text info
+        parse_method = psd_data.get('parse_method', 'psd-tools')
+        container.main_logger.info(f"PSD parsed with: {parse_method}")
+
         fonts_result = container.psd_service.extract_fonts(psd_data)
         if fonts_result.is_success():
             fonts = fonts_result.get_data()
+
+            # Log which parse method was used and how many fonts found
+            if parse_method == 'photoshop':
+                container.main_logger.info(f'Using Photoshop-extracted font data: {len(fonts)} fonts found')
+            elif parse_method == 'pillow':
+                container.main_logger.warning(f'Using Pillow (limited parsing): {len(fonts)} fonts found (may be incomplete)')
+            else:
+                container.main_logger.info(f'Using psd-tools font data: {len(fonts)} fonts found')
         else:
             container.main_logger.warning(f'Font extraction failed: {fonts_result.get_error()}')
             fonts = []
 
         # Check fonts (using legacy function for now, will create service later)
         font_check = check_fonts(psd_data)
+
+        # Check font installation status using new FontService
+        font_service = FontService(container.main_logger)
+        font_status_result = font_service.check_required_fonts(fonts)
+        if font_status_result.is_success():
+            font_status = font_status_result.get_data()
+            font_summary = font_service.get_font_summary(font_status)
+        else:
+            container.main_logger.warning(f'Font status check failed: {font_status_result.get_error()}')
+            font_status = {}
+            font_summary = {"total": 0, "installed": 0, "missing": 0, "percentage": 0, "all_installed": False}
 
         # Store in session
         sessions[session_id] = {
@@ -349,6 +373,9 @@ def upload_files():
             'psd_data': psd_data,
             'aepx_data': aepx_data,
             'font_check': font_check,
+            'font_status': font_status,
+            'font_summary': font_summary,
+            'fonts': fonts,
             'created_at': datetime.now()
         }
 
@@ -376,7 +403,12 @@ def upload_files():
                 'fonts': {
                     'total': font_check['summary']['total'],
                     'uncommon': font_check['summary']['uncommon'],
-                    'uncommon_list': font_check['uncommon_fonts']
+                    'uncommon_list': font_check['uncommon_fonts'],
+                    'installed': font_summary['installed'],
+                    'missing': font_summary['missing'],
+                    'percentage': font_summary['percentage'],
+                    'all_installed': font_summary['all_installed'],
+                    'status': font_status
                 }
             }
         })
@@ -570,7 +602,7 @@ def scan_aep_files():
 
 @app.route('/check-fonts', methods=['POST'])
 def check_fonts_endpoint():
-    """Check fonts for a PSD file."""
+    """Check fonts for a PSD file - RE-CHECKS in real-time."""
     try:
         data = request.json
         session_id = data.get('session_id')
@@ -582,63 +614,82 @@ def check_fonts_endpoint():
             }), 400
 
         session = sessions[session_id]
-        font_check = session.get('font_check', {})
 
+        # Get original font check to know which fonts we need
+        font_check = session.get('font_check', {})
         if not font_check:
             return jsonify({
                 'success': False,
                 'message': 'No font data available'
             }), 400
 
-        # Get required fonts
+        # Get required fonts list
         required_fonts = font_check.get('fonts_used', [])
 
-        # Check availability
-        availability = check_font_availability(required_fonts)
+        if not required_fonts:
+            # No fonts needed
+            return jsonify({
+                'success': True,
+                'data': {
+                    'required_fonts': [],
+                    'installed_fonts': [],
+                    'missing_fonts': [],
+                    'missing_count': 0,
+                    'total': len(required_fonts),
+                    'previews': {},
+                    'metadata': {}
+                }
+            })
 
-        # Generate preview images for all required fonts
+        # RE-CHECK fonts in real-time using FontService
+        font_service = FontService(container.main_logger)
+        status_result = font_service.check_required_fonts(required_fonts)
+
+        if not status_result.is_success():
+            return jsonify({
+                'success': False,
+                'error': status_result.get_error()
+            }), 500
+
+        font_status = status_result.get_data()
+
+        # Build installed and missing lists
+        installed_fonts = [font for font, status in font_status.items() if status]
+        missing_fonts = [font for font, status in font_status.items() if not status]
+
+        # Generate preview images for missing fonts only
         font_previews = {}
-        for font_name in required_fonts:
+        for font_name in missing_fonts:
             preview_filename = generate_font_preview_image(font_name)
             if preview_filename:
                 font_previews[font_name] = f'/previews/{preview_filename}'
-            else:
-                font_previews[font_name] = None
 
-        # Get font file metadata for installed fonts
-        font_metadata = {}
-        for font_name in availability['installed_fonts']:
-            for ext in ALLOWED_FONT_EXTENSIONS:
-                font_path = FONTS_FOLDER / f"{font_name}.{ext}"
-                if font_path.exists():
-                    file_size = font_path.stat().st_size
-                    # Convert to KB
-                    size_kb = file_size / 1024
-                    font_metadata[font_name] = {
-                        'format': ext.upper(),
-                        'size': f"{size_kb:.1f} KB",
-                        'size_bytes': file_size
-                    }
-                    break
+        # Build response
+        response_data = {
+            'required_fonts': required_fonts,
+            'installed_fonts': installed_fonts,
+            'missing_fonts': missing_fonts,
+            'missing_count': len(missing_fonts),
+            'total': len(required_fonts),
+            'previews': font_previews,
+            'metadata': {}  # Can be enhanced later
+        }
+
+        container.main_logger.info(
+            f"Font check for session {session_id}: "
+            f"{len(installed_fonts)}/{len(required_fonts)} installed"
+        )
 
         return jsonify({
             'success': True,
-            'message': 'Fonts checked successfully',
-            'data': {
-                'required_fonts': availability['required_fonts'],
-                'installed_fonts': availability['installed_fonts'],
-                'missing_fonts': availability['missing_fonts'],
-                'total': len(required_fonts),
-                'missing_count': len(availability['missing_fonts']),
-                'previews': font_previews,
-                'metadata': font_metadata
-            }
+            'data': response_data
         })
 
     except Exception as e:
+        container.main_logger.error(f"Font check failed: {e}", exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'Error checking fonts: {str(e)}'
+            'error': str(e)
         }), 500
 
 
@@ -948,7 +999,7 @@ def generate_mapping_preview_endpoint():
 
 @app.route('/upload-fonts', methods=['POST'])
 def upload_fonts():
-    """Upload font files."""
+    """Upload and install font files to system fonts directory."""
     try:
         if 'font_files' not in request.files:
             return jsonify({
@@ -957,8 +1008,11 @@ def upload_fonts():
             }), 400
 
         files = request.files.getlist('font_files')
-        uploaded = []
+        installed = []
         errors = []
+
+        # Create FontService instance
+        font_service = FontService(container.main_logger)
 
         for font_file in files:
             if font_file.filename == '':
@@ -978,26 +1032,186 @@ def upload_fonts():
                 errors.append(f'{font_file.filename}: File too large (max 5MB)')
                 continue
 
-            # Save file
+            # Save to temporary location with unique name
             filename = secure_filename(font_file.filename)
-            font_path = FONTS_FOLDER / filename
-            font_file.save(str(font_path))
-            uploaded.append(filename)
+            temp_filename = f'{uuid.uuid4().hex}_{filename}'  # Unique temp name
+            temp_path = UPLOAD_FOLDER / temp_filename
+            font_file.save(str(temp_path))
+
+            # Install font using FontService - pass original filename
+            # FontService will use this as the target filename
+            result = font_service.install_font(str(temp_path), filename)
+
+            # Clean up temp file
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+
+            if result.is_success():
+                installed.append(filename)
+                container.main_logger.info(f'Font installed: {filename}')
+            else:
+                errors.append(f'{font_file.filename}: {result.get_error()}')
+                container.main_logger.error(f'Font installation failed: {filename} - {result.get_error()}')
+
+        if installed:
+            return jsonify({
+                'success': True,
+                'message': f'Installed {len(installed)} font file(s) to ~/Library/Fonts',
+                'data': {
+                    'installed': installed,
+                    'errors': errors
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No fonts were installed',
+                'errors': errors
+            }), 400
+
+    except Exception as e:
+        container.main_logger.error(f'Font upload failed: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Font upload failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/fonts/check', methods=['POST'])
+def check_fonts_api():
+    """Check font status for a list of required fonts."""
+    try:
+        data = request.json
+        required_fonts = data.get('fonts', [])
+
+        if not required_fonts:
+            return jsonify({
+                'success': False,
+                'error': 'No fonts provided'
+            }), 400
+
+        # Create font service instance
+        font_service = FontService(container.main_logger)
+
+        # Check font status
+        result = font_service.check_required_fonts(required_fonts)
+
+        if not result.is_success():
+            return jsonify({
+                'success': False,
+                'error': result.get_error()
+            }), 500
+
+        font_status = result.get_data()
+        summary = font_service.get_font_summary(font_status)
 
         return jsonify({
             'success': True,
-            'message': f'Uploaded {len(uploaded)} font file(s)',
-            'data': {
-                'uploaded': uploaded,
-                'errors': errors,
-                'total_fonts': len(list_uploaded_fonts())
-            }
+            'fonts': font_status,
+            'summary': summary
         })
 
     except Exception as e:
+        container.main_logger.error(f"Font check failed: {e}", exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'Error uploading fonts: {str(e)}'
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/fonts/install', methods=['POST'])
+def install_font_api():
+    """Install a font file to ~/Library/Fonts."""
+    try:
+        if 'font_file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No font file provided'
+            }), 400
+
+        font_file = request.files['font_file']
+        font_name = request.form.get('font_name', '')
+
+        if font_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+
+        # Validate file type
+        if not allowed_file(font_file.filename, ALLOWED_FONT_EXTENSIONS):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid font format (must be .ttf, .otf, .ttc, or .dfont)'
+            }), 400
+
+        # Save to temp location first
+        filename = secure_filename(font_file.filename)
+        temp_path = UPLOAD_FOLDER / filename
+        font_file.save(str(temp_path))
+
+        # Create font service and install
+        font_service = FontService(container.main_logger)
+        result = font_service.install_font(str(temp_path), font_name or filename)
+
+        # Clean up temp file
+        if temp_path.exists():
+            temp_path.unlink()
+
+        if not result.is_success():
+            return jsonify({
+                'success': False,
+                'error': result.get_error()
+            }), 400
+
+        return jsonify({
+            'success': True,
+            'message': result.get_data()
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Font installation failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/fonts/copy', methods=['POST'])
+def copy_font_api():
+    """Copy an existing system font to AE fonts directory."""
+    try:
+        data = request.json
+        font_name = data.get('font_name')
+
+        if not font_name:
+            return jsonify({
+                'success': False,
+                'error': 'No font name provided'
+            }), 400
+
+        # Create font service and copy font
+        font_service = FontService(container.main_logger)
+        result = font_service.copy_existing_font(font_name)
+
+        if not result.is_success():
+            return jsonify({
+                'success': False,
+                'error': result.get_error()
+            }), 400
+
+        return jsonify({
+            'success': True,
+            'message': result.get_data()
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Font copy failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 
@@ -1578,7 +1792,7 @@ def generate_script():
         options = {
             'psd_file_path': session['psd_path'],
             'aepx_file_path': session['aepx_path'],
-            'output_project_path': str(OUTPUT_FOLDER / f"{session_id}_output.aep"),
+            'output_project_path': str((OUTPUT_FOLDER / f"{session_id}_output.aep").resolve()),
             'render_output': False,
             'render_path': ''
         }
@@ -1628,6 +1842,79 @@ def download_file(filename):
         return jsonify({
             'success': False,
             'message': f'Error downloading file: {str(e)}'
+        }), 500
+
+
+@app.route('/apply-resolution', methods=['POST'])
+def apply_resolution():
+    """Apply a conflict resolution."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        conflict_id = data.get('conflict_id')
+        resolution_id = data.get('resolution_id')
+
+        if not session_id or session_id not in sessions:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid session'
+            }), 400
+
+        session = sessions[session_id]
+        conflicts_data = session.get('conflicts', {})
+
+        # Find the conflict
+        conflict = next(
+            (c for c in conflicts_data.get('conflicts', []) if c['id'] == conflict_id),
+            None
+        )
+
+        if not conflict:
+            return jsonify({
+                'success': False,
+                'message': 'Conflict not found'
+            }), 404
+
+        # Import and create resolution service
+        from services.conflict_resolution_service import ConflictResolutionService
+        resolution_service = ConflictResolutionService(container.main_logger)
+
+        psd_path = session.get('psd_path')
+        output_folder = OUTPUT_FOLDER
+
+        # Apply resolution
+        result = resolution_service.apply_resolution(
+            conflict, resolution_id, psd_path, str(output_folder)
+        )
+
+        if result.is_success():
+            data = result.get_data()
+
+            # Update session if file was modified
+            if 'modified_path' in data:
+                session['psd_path'] = data['modified_path']
+                container.main_logger.info(f"Updated session PSD path to: {data['modified_path']}")
+
+            # Mark conflict as resolved
+            conflict['resolved'] = True
+            conflict['resolution_applied'] = resolution_id
+
+            return jsonify({
+                'success': True,
+                'message': data.get('message', 'Resolution applied successfully'),
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get_error()
+            }), 400
+
+    except Exception as e:
+        container.main_logger.error(f"Resolution failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
         }), 500
 
 

@@ -174,9 +174,13 @@ class ServiceContainer:
         )
 
         # Project Service (with audit trail and batch processing)
+        # Get settings data from Result object
+        settings_result = self.settings_service.get_settings()
+        settings_data = settings_result.get_data() if settings_result.is_success() else {}
+
         self.project_service = ProjectService(
             logger=get_service_logger('project'),
-            settings=self.settings_service.get_settings(),
+            settings=settings_data,
             psd_service=self.psd_service,
             aepx_service=self.aepx_service,
             matching_service=self.matching_service,

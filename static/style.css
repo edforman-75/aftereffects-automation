@@ -1246,3 +1246,151 @@ body {
         padding: 10px;
     }
 }
+
+/* ============================================================================
+   CONFLICT RESOLUTION UI STYLES
+   ============================================================================ */
+
+/* Conflict cards */
+.conflict-item {
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.conflict-item.conflict-critical {
+    border-color: #dc3545;
+    background: #fff5f5;
+}
+
+.conflict-item.conflict-warning {
+    border-color: #ffc107;
+    background: #fffef5;
+}
+
+.conflict-item.conflict-info {
+    border-color: #17a2b8;
+    background: #f5fbfc;
+}
+
+.conflict-item.resolved {
+    opacity: 0.6;
+    border-color: #28a745;
+    background: #f0fff4;
+}
+
+/* Resolution options container */
+.resolution-options {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.resolution-options h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: #333;
+    font-size: 1rem;
+}
+
+/* Individual resolution option */
+.resolution-option {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px;
+    margin: 8px 0;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.resolution-option:hover {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.resolution-option.default {
+    border-color: #007bff;
+    background: #f0f7ff;
+}
+
+.resolution-option input[type="radio"] {
+    margin-right: 12px;
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.resolution-option label {
+    flex: 1;
+    cursor: pointer;
+    margin: 0;
+}
+
+.resolution-option strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.option-description {
+    font-size: 0.9em;
+    color: #666;
+    margin: 4px 0 0 0;
+    line-height: 1.4;
+}
+
+/* Badge styles */
+.badge-default {
+    background: #007bff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+    font-weight: normal;
+}
+
+/* Apply resolution button */
+.apply-resolution-btn {
+    margin-top: 12px;
+    width: 100%;
+}
+
+.apply-resolution-btn:disabled {
+    background: #28a745;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Disabled state for resolved conflicts */
+.conflict-item.resolved input[type="radio"] {
+    cursor: not-allowed;
+}
+
+.conflict-item.resolved .resolution-option {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.conflict-item.resolved .resolution-option:hover {
+    border-color: #ddd;
+    background: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .resolution-option {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .resolution-option input[type="radio"] {
+        margin-bottom: 8px;
+    }
+}

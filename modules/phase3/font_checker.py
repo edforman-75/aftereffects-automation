@@ -45,8 +45,16 @@ def check_fonts(psd_data: Dict[str, Any]) -> Dict[str, Any]:
         if layer['type'] == 'text' and 'text' in layer:
             text_layers_found += 1
 
-            # Check for font_name (preferred)
-            if 'font_name' in layer['text']:
+            # Check for font or font_name (supports both psd-tools and Photoshop data)
+            if 'font' in layer['text']:
+                font_name = layer['text']['font']
+                fonts_used.add(font_name)
+                font_details.append({
+                    'layer': layer['name'],
+                    'font': font_name,
+                    'size': layer['text'].get('font_size', 'unknown')
+                })
+            elif 'font_name' in layer['text']:
                 font_name = layer['text']['font_name']
                 fonts_used.add(font_name)
                 font_details.append({

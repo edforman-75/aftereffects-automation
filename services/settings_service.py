@@ -22,15 +22,16 @@ class SettingsService(BaseService):
     - Validate settings
     """
 
-    def __init__(self, logger, config_path='config.json'):
+    def __init__(self, logger, config_path='config.json', enhanced_logging=None):
         """
         Initialize settings service.
 
         Args:
             logger: Logger instance
             config_path: Path to configuration file
+            enhanced_logging: EnhancedLoggingService instance (optional)
         """
-        super().__init__(logger)
+        super().__init__(logger, enhanced_logging=enhanced_logging)
         self.config_path = config_path
         self.settings = Settings.load(config_path)
 

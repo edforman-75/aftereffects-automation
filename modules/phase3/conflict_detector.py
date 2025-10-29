@@ -257,11 +257,30 @@ def _check_image_conflicts(psd_layer: Dict, mapping: Dict, main_comp: Dict,
             conflicts.append({
                 "id": f"CONF-{conflict_id}",
                 "type": "ASPECT_RATIO_MISMATCH",
-                "severity": "warning",
+                "severity": "info",
                 "mapping": mapping,
                 "issue": f"Aspect ratio mismatch. Image: {psd_aspect:.2f}, Template: {comp_aspect:.2f}",
-                "suggestion": "Crop or resize image to match template aspect ratio.",
-                "auto_fixable": True
+                "suggestion": "PSD will be imported as full composition - aspect handled by After Effects.",
+                "auto_fixable": False,
+                "details": {
+                    "psd_width": psd_w,
+                    "psd_height": psd_h,
+                    "psd_aspect": round(psd_aspect, 2),
+                    "comp_width": comp_w,
+                    "comp_height": comp_h,
+                    "comp_aspect": round(comp_aspect, 2)
+                },
+                "resolution_options": [
+                    {
+                        "id": "accept",
+                        "label": "Accept - PSD Import Handles This",
+                        "description": "The full PSD will be imported as a composition with all layers intact",
+                        "is_default": True,
+                        "params": {
+                            "method": "accept"
+                        }
+                    }
+                ]
             })
             conflict_id += 1
     
@@ -276,7 +295,29 @@ def _check_image_conflicts(psd_layer: Dict, mapping: Dict, main_comp: Dict,
             "mapping": mapping,
             "issue": f"Image will be upscaled {scale_factor:.1f}x. May look pixelated.",
             "suggestion": f"Use higher resolution (recommend: {comp_w}×{comp_h} or larger).",
-            "auto_fixable": False
+            "auto_fixable": False,
+            "resolution_options": [
+                {
+                    "id": "accept_quality_loss",
+                    "label": "Accept (May Look Pixelated)",
+                    "description": f"Proceed with upscaling - image will be enlarged {scale_factor:.1f}x",
+                    "is_default": True,
+                    "params": {
+                        "method": "accept"
+                    }
+                },
+                {
+                    "id": "upload_higher_res",
+                    "label": "Upload Higher Resolution",
+                    "description": f"Replace with image at least {comp_w}×{comp_h}",
+                    "is_default": False,
+                    "params": {
+                        "method": "reupload",
+                        "min_width": comp_w,
+                        "min_height": comp_h
+                    }
+                }
+            ]
         })
         conflict_id += 1
     elif psd_w / comp_w < cfg['downscale_info_factor'] or psd_h / comp_h < cfg['downscale_info_factor']:
@@ -317,7 +358,29 @@ def _check_dimension_mismatch(psd_data: Dict, main_comp: Dict, cfg: Dict, start_
         "mapping": {"psd_layer": "Document", "aepx_placeholder": "Composition"},
         "issue": f"PSD ({psd_w}×{psd_h}) differs from template ({comp_w}×{comp_h}).",
         "suggestion": "Content will be scaled/repositioned. Verify layout after import.",
-        "auto_fixable": False
+        "auto_fixable": False,
+        "resolution_options": [
+            {
+                "id": "accept_scaling",
+                "label": "Accept Auto-Scaling",
+                "description": "Let After Effects handle scaling/positioning automatically",
+                "is_default": True,
+                "params": {
+                    "method": "accept"
+                }
+            },
+            {
+                "id": "adjust_psd",
+                "label": "Adjust PSD Dimensions",
+                "description": f"Recreate PSD at {comp_w}×{comp_h} for perfect fit",
+                "is_default": False,
+                "params": {
+                    "method": "manual_adjust",
+                    "target_width": comp_w,
+                    "target_height": comp_h
+                }
+            }
+        ]
     })
     
     return conflicts

@@ -552,45 +552,29 @@
             const statusEl = document.getElementById('mappingLoadStatus');
 
             loadBtn.disabled = true;
-            statusEl.textContent = '⏳ Loading preview images...';
+            statusEl.textContent = '⏳ Loading visual mapping interface...';
             statusEl.className = 'status-message status-info';
             statusEl.style.display = 'block';
 
             try {
-                // Load PSD previews
-                const psdResponse = await fetch('/render-psd-preview', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId })
+                // Skip preview generation - just use layer names
+                // Create placeholder preview data
+                psdLayerPreviews = {};
+                allPsdLayers.forEach(layer => {
+                    psdLayerPreviews[layer] = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23e0e0e0"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%23333">No Preview</text></svg>';
                 });
 
-                if (!psdResponse.ok) {
-                    throw new Error('Failed to load PSD previews');
-                }
-
-                const psdData = await psdResponse.json();
-                psdLayerPreviews = psdData.data.layer_previews;
-
-                // Load AEPX previews
-                const aepxResponse = await fetch('/render-aepx-preview', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId })
+                aepxPlaceholderPreviews = {};
+                allPlaceholders.forEach(placeholder => {
+                    aepxPlaceholderPreviews[placeholder] = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%23666">No Preview</text></svg>';
                 });
-
-                if (!aepxResponse.ok) {
-                    throw new Error('Failed to load AEPX previews');
-                }
-
-                const aepxData = await aepxResponse.json();
-                aepxPlaceholderPreviews = aepxData.data.placeholder_previews;
 
                 previewsLoaded = true;
 
                 // Display visual mapping interface
                 displayVisualMappingInterface();
 
-                statusEl.textContent = '✅ Preview images loaded successfully';
+                statusEl.textContent = '✅ Visual mapping interface loaded';
                 statusEl.className = 'status-message status-success';
 
                 // Hide load button after successful load
@@ -808,13 +792,43 @@
                 conflicts.items.forEach(conflict => {
                     const icon = conflict.severity === 'critical' ? '🔴' :
                                 conflict.severity === 'warning' ? '⚠️' : 'ℹ️';
+                    const resolutionOptions = conflict.resolution_options || [];
+                    const isResolved = conflict.resolved || false;
+
                     listHtml += `
-                        <div class="conflict-item conflict-${conflict.severity}">
+                        <div class="conflict-item conflict-${conflict.severity} ${isResolved ? 'resolved' : ''}" data-conflict-id="${conflict.id}">
                             <span class="conflict-icon">${icon}</span>
                             <div class="conflict-details">
                                 <strong>${conflict.type}</strong>
                                 <p>${conflict.issue}</p>
                                 ${conflict.suggestion ? `<p class="suggestion">💡 ${conflict.suggestion}</p>` : ''}
+
+                                ${resolutionOptions.length > 0 ? `
+                                    <div class="resolution-options">
+                                        <h4>Resolution Options:</h4>
+                                        ${resolutionOptions.map(option => `
+                                            <div class="resolution-option ${option.is_default ? 'default' : ''}">
+                                                <input type="radio"
+                                                       name="resolution_${conflict.id}"
+                                                       id="${conflict.id}_${option.id}"
+                                                       value="${option.id}"
+                                                       ${option.is_default ? 'checked' : ''}
+                                                       ${isResolved ? 'disabled' : ''}>
+                                                <label for="${conflict.id}_${option.id}">
+                                                    <strong>${option.label}</strong>
+                                                    ${option.is_default ? '<span class="badge-default">Recommended</span>' : ''}
+                                                    <p class="option-description">${option.description}</p>
+                                                </label>
+                                            </div>
+                                        `).join('')}
+
+                                        <button class="btn btn-primary btn-small apply-resolution-btn"
+                                                onclick="applyResolution('${conflict.id}')"
+                                                ${isResolved ? 'disabled' : ''}>
+                                            ${isResolved ? '✓ Resolved' : 'Apply Resolution'}
+                                        </button>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -826,6 +840,48 @@
 
             summary.innerHTML = summaryHtml;
             list.innerHTML = listHtml;
+        }
+
+        async function applyResolution(conflictId) {
+            const selectedOption = document.querySelector(`input[name="resolution_${conflictId}"]:checked`);
+
+            if (!selectedOption) {
+                alert('Please select a resolution option');
+                return;
+            }
+
+            const resolutionId = selectedOption.value;
+
+            try {
+                const response = await fetch('/apply-resolution', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        conflict_id: conflictId,
+                        resolution_id: resolutionId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    // Mark conflict as resolved in UI
+                    const conflictCard = document.querySelector(`[data-conflict-id="${conflictId}"]`);
+                    conflictCard.classList.add('resolved');
+                    conflictCard.querySelector('.apply-resolution-btn').textContent = '✓ Resolved';
+                    conflictCard.querySelector('.apply-resolution-btn').disabled = true;
+                    // Disable radio buttons
+                    conflictCard.querySelectorAll('input[type="radio"]').forEach(input => {
+                        input.disabled = true;
+                    });
+                } else {
+                    alert('Resolution failed: ' + result.message);
+                }
+            } catch (error) {
+                alert('Error applying resolution: ' + error.message);
+            }
         }
 
         // Generate script
