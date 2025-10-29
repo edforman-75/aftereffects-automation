@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - After Effects Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='settings.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚙️ Settings</h1>
+            <div class="header-actions">
+                <button onclick="window.location.href='/'" class="btn-secondary">← Back to Home</button>
+                <button onclick="resetSettings()" class="btn-warning">Reset to Defaults</button>
+                <button onclick="saveSettings()" class="btn-primary">Save Settings</button>
+            </div>
+        </header>
+
+        <div id="status-message" class="status-message hidden"></div>
+
+        <div class="settings-container">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-button active" onclick="showTab('directories')">
+                    📁 Directories
+                </button>
+                <button class="tab-button" onclick="showTab('conflicts')">
+                    ⚠️ Conflict Thresholds
+                </button>
+                <button class="tab-button" onclick="showTab('preview')">
+                    🎬 Preview Defaults
+                </button>
+                <button class="tab-button" onclick="showTab('advanced')">
+                    🔧 Advanced
+                </button>
+            </div>
+
+            <!-- Directories Tab -->
+            <div id="directories-tab" class="tab-content active">
+                <h2>Directory Locations</h2>
+                <p class="tab-description">Configure where files are stored and accessed</p>
+
+                <div class="setting-group">
+                    <label for="upload_dir">
+                        Upload Directory
+                        <span class="setting-help">Where uploaded PSD and AEPX files are stored</span>
+                    </label>
+                    <input type="text" id="upload_dir" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="preview_dir">
+                        Preview Directory
+                        <span class="setting-help">Where generated preview videos are saved</span>
+                    </label>
+                    <input type="text" id="preview_dir" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="output_dir">
+                        Output Directory
+                        <span class="setting-help">Where final ExtendScript files are exported</span>
+                    </label>
+                    <input type="text" id="output_dir" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="fonts_dir">
+                        Fonts Directory
+                        <span class="setting-help">Where font files are stored for checking</span>
+                    </label>
+                    <input type="text" id="fonts_dir" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="footage_dir">
+                        Footage Directory
+                        <span class="setting-help">Where asset files (images, videos) are located</span>
+                    </label>
+                    <input type="text" id="footage_dir" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="logs_dir">
+                        Logs Directory
+                        <span class="setting-help">Where application logs are saved</span>
+                    </label>
+                    <input type="text" id="logs_dir" class="setting-input">
+                </div>
+            </div>
+
+            <!-- Conflict Thresholds Tab -->
+            <div id="conflicts-tab" class="tab-content">
+                <h2>Conflict Detection Thresholds</h2>
+                <p class="tab-description">Set when to flag issues as warnings or critical errors</p>
+
+                <div class="setting-group">
+                    <label for="text_overflow_critical">
+                        Text Overflow - Critical
+                        <span class="setting-help">Text extends beyond bounds by more than this %</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="text_overflow_critical" min="0" max="50" step="1"
+                               oninput="updateSliderValue(this, 'text_overflow_critical_value')">
+                        <span id="text_overflow_critical_value" class="slider-value">10%</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="text_overflow_warning">
+                        Text Overflow - Warning
+                        <span class="setting-help">Text extends beyond bounds by more than this %</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="text_overflow_warning" min="0" max="50" step="1"
+                               oninput="updateSliderValue(this, 'text_overflow_warning_value')">
+                        <span id="text_overflow_warning_value" class="slider-value">5%</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="aspect_ratio_critical">
+                        Aspect Ratio - Critical
+                        <span class="setting-help">Aspect ratio differs by more than this amount</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="aspect_ratio_critical" min="0" max="1" step="0.05"
+                               oninput="updateSliderValue(this, 'aspect_ratio_critical_value')">
+                        <span id="aspect_ratio_critical_value" class="slider-value">0.2</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="aspect_ratio_warning">
+                        Aspect Ratio - Warning
+                        <span class="setting-help">Aspect ratio differs by more than this amount</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="aspect_ratio_warning" min="0" max="1" step="0.05"
+                               oninput="updateSliderValue(this, 'aspect_ratio_warning_value')">
+                        <span id="aspect_ratio_warning_value" class="slider-value">0.1</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="resolution_mismatch_warning">
+                        Resolution Mismatch - Warning
+                        <span class="setting-help">Resolution differs by more than this many pixels</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="resolution_mismatch_warning" min="0" max="500" step="10"
+                               oninput="updateSliderValue(this, 'resolution_mismatch_warning_value')">
+                        <span id="resolution_mismatch_warning_value" class="slider-value">100px</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Defaults Tab -->
+            <div id="preview-tab" class="tab-content">
+                <h2>Preview Generation Defaults</h2>
+                <p class="tab-description">Default settings for video preview generation</p>
+
+                <div class="setting-group">
+                    <label for="preview_duration">
+                        Duration (seconds)
+                        <span class="setting-help">Length of preview video</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="preview_duration" min="1" max="30" step="1"
+                               oninput="updateSliderValue(this, 'preview_duration_value')">
+                        <span id="preview_duration_value" class="slider-value">5s</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="preview_resolution">
+                        Resolution
+                        <span class="setting-help">Preview quality (full = slower, quarter = faster)</span>
+                    </label>
+                    <select id="preview_resolution" class="setting-input">
+                        <option value="quarter">Quarter (Fast)</option>
+                        <option value="half">Half (Balanced)</option>
+                        <option value="full">Full (Best Quality)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="preview_fps">
+                        Frame Rate (FPS)
+                        <span class="setting-help">Frames per second</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="preview_fps" min="10" max="60" step="5"
+                               oninput="updateSliderValue(this, 'preview_fps_value')">
+                        <span id="preview_fps_value" class="slider-value">15 fps</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="preview_format">
+                        Output Format
+                        <span class="setting-help">Video file format</span>
+                    </label>
+                    <select id="preview_format" class="setting-input">
+                        <option value="mp4">MP4 (H.264)</option>
+                        <option value="mov">MOV (QuickTime)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="preview_quality">
+                        Quality Preset
+                        <span class="setting-help">Encoding quality</span>
+                    </label>
+                    <select id="preview_quality" class="setting-input">
+                        <option value="draft">Draft (Fast)</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High (Slow)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Advanced Tab -->
+            <div id="advanced-tab" class="tab-content">
+                <h2>Advanced Settings</h2>
+                <p class="tab-description">Expert configuration options</p>
+
+                <div class="setting-group">
+                    <label for="ml_confidence_threshold">
+                        ML Confidence Threshold
+                        <span class="setting-help">Minimum confidence for auto-matching (0.0-1.0)</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="ml_confidence_threshold" min="0" max="1" step="0.05"
+                               oninput="updateSliderValue(this, 'ml_confidence_threshold_value')">
+                        <span id="ml_confidence_threshold_value" class="slider-value">0.7</span>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label for="aerender_path">
+                        After Effects aerender Path
+                        <span class="setting-help">Full path to aerender executable</span>
+                    </label>
+                    <input type="text" id="aerender_path" class="setting-input">
+                </div>
+
+                <div class="setting-group">
+                    <label for="max_file_size_mb">
+                        Max File Size (MB)
+                        <span class="setting-help">Maximum upload file size</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="max_file_size_mb" min="50" max="2000" step="50"
+                               oninput="updateSliderValue(this, 'max_file_size_mb_value')">
+                        <span id="max_file_size_mb_value" class="slider-value">500 MB</span>
+                    </div>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="auto_font_substitution">
+                        <span>Auto Font Substitution</span>
+                        <span class="setting-help">Automatically substitute missing fonts with similar ones</span>
+                    </label>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="enable_debug_logging">
+                        <span>Enable Debug Logging</span>
+                        <span class="setting-help">Log detailed debug information (recommended for production)</span>
+                    </label>
+                </div>
+
+                <div class="setting-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="cleanup_temp_files">
+                        <span>Cleanup Temp Files</span>
+                        <span class="setting-help">Automatically delete temporary files after processing</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='settings.js') }}"></script>
+</body>
+</html>

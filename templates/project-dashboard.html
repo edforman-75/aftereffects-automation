@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Dashboard - After Effects Automation</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/projects.css">
+</head>
+<body>
+    <div class="container" id="project-dashboard" data-project-id="{{ project_id }}">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 id="project-name">Project Dashboard</h1>
+                <p class="subtitle" id="project-client" style="display: none;"></p>
+                <p class="description" id="project-description" style="display: none;"></p>
+            </div>
+            <div class="header-actions">
+                <button id="back-to-projects-btn" class="btn btn-secondary">← Projects</button>
+                <div class="user-info">
+                    User: <strong id="current-user-display">-</strong>
+                    <button id="change-user-btn" class="btn btn-sm">Change</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Error Message -->
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading" style="display: none;">Loading project...</div>
+
+        <!-- Project Stats -->
+        <section class="card project-stats-section">
+            <h2>Project Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Graphics</div>
+                    <div class="stat-value" id="total-graphics">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-value" id="completed-graphics">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Needs Review</div>
+                    <div class="stat-value" id="needs-review-graphics">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-value" id="approved-graphics">0</div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar-wrapper">
+                    <div id="project-progress-bar" class="progress-bar" style="width: 0%;">0%</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Graphics Controls -->
+        <section class="card">
+            <div class="graphics-controls">
+                <h2>Graphics</h2>
+                <div class="controls-group">
+                    <button id="add-graphic-btn" class="btn btn-primary">+ Add Graphic</button>
+                    <button id="batch-process-btn" class="btn btn-success">⚡ Batch Process</button>
+                    <button id="bulk-approve-btn" class="btn btn-info">✓ Bulk Approve</button>
+                    <button id="export-project-btn" class="btn btn-export" disabled>📦 Export All</button>
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="status-not-started">Not Started</button>
+                <button class="filter-btn" data-filter="status-ready">Ready</button>
+                <button class="filter-btn" data-filter="status-complete">Complete</button>
+                <button class="filter-btn" data-filter="status-needs-review">Needs Review</button>
+            </div>
+        </section>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="card empty-state">
+            <h3>No graphics yet</h3>
+            <p>Add your first graphic to get started!</p>
+            <button class="btn btn-primary" onclick="document.getElementById('add-graphic-btn').click()">+ Add Graphic</button>
+        </div>
+
+        <!-- Graphics Grid -->
+        <div id="graphics-grid" class="graphics-grid" style="display: none;">
+            <!-- Graphics will be loaded here dynamically -->
+        </div>
+    </div>
+
+    <!-- Add Graphic Modal -->
+    <div id="add-graphic-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Graphic</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="add-graphic-form">
+                <div class="form-group">
+                    <label for="graphic-name">Graphic Name *</label>
+                    <input type="text" id="graphic-name" name="name" required placeholder="e.g., Hero Banner">
+                </div>
+                <div class="form-group">
+                    <label for="psd-upload">PSD File (optional)</label>
+                    <input type="file" id="psd-upload" accept=".psd">
+                </div>
+                <div class="form-group">
+                    <label for="template-select">After Effects Template (optional)</label>
+                    <select id="template-select" name="template">
+                        <option value="">Select template...</option>
+                        <!-- Templates will be loaded dynamically or can be added here -->
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Graphic</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Audit Log Modal -->
+    <div id="audit-log-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Audit Log: <span id="audit-graphic-name">-</span></h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="audit-log-content">
+                    <!-- Audit log entries will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Success Modal -->
+    <div id="export-success-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✓ Export Successful</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-success-content">
+                    <p class="export-message">Your project has been successfully exported!</p>
+
+                    <div class="export-details">
+                        <div class="export-detail-row">
+                            <strong>File Name:</strong>
+                            <span id="export-filename">-</span>
+                        </div>
+                        <div class="export-detail-row">
+                            <strong>File Size:</strong>
+                            <span id="export-filesize">-</span>
+                        </div>
+                        <div class="export-detail-row">
+                            <strong>Graphics Included:</strong>
+                            <span id="export-graphics-count">-</span>
+                        </div>
+                    </div>
+
+                    <div class="export-actions">
+                        <a id="export-download-link" href="#" class="btn btn-primary" download>Download ZIP</a>
+                    </div>
+
+                    <div class="export-info">
+                        <h4>Package Contents:</h4>
+                        <ul>
+                            <li><strong>aepx/</strong> - Populated After Effects templates</li>
+                            <li><strong>scripts/</strong> - ExtendScript automation files (.jsx)</li>
+                            <li><strong>previews/</strong> - Video previews</li>
+                            <li><strong>psd_sources/</strong> - Original PSD files</li>
+                            <li><strong>manifest.json</strong> - Project metadata</li>
+                            <li><strong>PROJECT_SUMMARY.pdf</strong> - Executive summary</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/project-dashboard.js"></script>
+</body>
+</html>

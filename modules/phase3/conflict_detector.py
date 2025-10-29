@@ -1,14 +1,22 @@
 """
 Module 3.2: Conflict Detection
 
-Detects potential problems in content mappings before rendering.
+Detects potential problems in content mappings with configurable thresholds.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+from .conflict_config import DEFAULT_CONFLICT_CONFIG
+
+# Import font metrics for accurate text width calculation
+try:
+    from modules.phase1.font_metrics import calculate_text_width, find_system_font
+    FONT_METRICS_AVAILABLE = True
+except ImportError:
+    FONT_METRICS_AVAILABLE = False
 
 
 def detect_conflicts(psd_data: Dict[str, Any], aepx_data: Dict[str, Any], 
-                     mappings: Dict[str, Any]) -> Dict[str, Any]:
+                     mappings: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Detect potential conflicts in content-to-slot mappings.
 
@@ -16,11 +24,15 @@ def detect_conflicts(psd_data: Dict[str, Any], aepx_data: Dict[str, Any],
         psd_data: Parsed PSD data from Module 1.1
         aepx_data: Parsed AEPX data from Module 2.1
         mappings: Mapping results from Module 3.1
+        config: Optional configuration dict with thresholds
 
     Returns:
         Dictionary with conflicts and summary
     """
+    cfg = config if config is not None else DEFAULT_CONFLICT_CONFIG.copy()
+    
     conflicts = []
+    conflict_id = 1
     
     # Get main composition dimensions
     main_comp = next(
@@ -28,185 +40,284 @@ def detect_conflicts(psd_data: Dict[str, Any], aepx_data: Dict[str, Any],
         aepx_data['compositions'][0] if aepx_data['compositions'] else None
     )
     
-    # Check each mapping for conflicts
+    # Check each mapping
     for mapping in mappings['mappings']:
-        # Find the actual PSD layer
-        psd_layer = next(
-            (l for l in psd_data['layers'] if l['name'] == mapping['psd_layer']),
-            None
-        )
-        
+        psd_layer = next((l for l in psd_data['layers'] if l['name'] == mapping['psd_layer']), None)
         if not psd_layer:
             continue
         
-        # Check text conflicts
+        # Text conflicts
         if mapping['type'] == 'text':
-            conflicts.extend(_check_text_conflicts(psd_layer, mapping))
+            text_conflicts = _check_text_conflicts(psd_layer, mapping, cfg, conflict_id)
+            conflicts.extend(text_conflicts)
+            conflict_id += len(text_conflicts)
         
-        # Check image conflicts
+        # Image conflicts
         elif mapping['type'] == 'image':
-            conflicts.extend(_check_image_conflicts(psd_layer, mapping, main_comp))
+            image_conflicts = _check_image_conflicts(psd_layer, mapping, main_comp, cfg, conflict_id)
+            conflicts.extend(image_conflicts)
+            conflict_id += len(image_conflicts)
     
-    # Check dimension mismatch
+    # Dimension mismatch
     if main_comp:
-        dimension_conflicts = _check_dimension_mismatch(psd_data, main_comp)
-        conflicts.extend(dimension_conflicts)
+        dim_conflicts = _check_dimension_mismatch(psd_data, main_comp, cfg, conflict_id)
+        conflicts.extend(dim_conflicts)
     
-    # Generate summary
+    # Summary
     summary = {
-        "total_conflicts": len(conflicts),
+        "total": len(conflicts),
         "critical": sum(1 for c in conflicts if c['severity'] == 'critical'),
-        "warnings": sum(1 for c in conflicts if c['severity'] == 'warning'),
+        "warning": sum(1 for c in conflicts if c['severity'] == 'warning'),
         "info": sum(1 for c in conflicts if c['severity'] == 'info')
     }
     
-    return {
-        "conflicts": conflicts,
-        "summary": summary
-    }
+    return {"conflicts": conflicts, "summary": summary}
 
 
-def _check_text_conflicts(psd_layer: Dict[str, Any], mapping: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Check for text-related conflicts."""
+def _check_text_conflicts(psd_layer: Dict, mapping: Dict, cfg: Dict, start_id: int) -> List[Dict]:
+    """Check text-related conflicts using actual font metrics when available."""
     conflicts = []
-    
-    # Get text content if available
+    conflict_id = start_id
+
     text_content = ""
     if 'text' in psd_layer and 'content' in psd_layer['text']:
         text_content = psd_layer['text']['content']
-    
+
     if not text_content:
         return conflicts
-    
+
     text_length = len(text_content)
+
+    # Get font information from PSD layer
+    font_name = psd_layer.get('text', {}).get('font_name', 'Arial')
+    font_size = psd_layer.get('text', {}).get('font_size', 48.0)
+
+    # Try to calculate actual text width using font metrics
+    text_width = None
+    font_found = False
+    placeholder_width = None
+
+    if FONT_METRICS_AVAILABLE:
+        try:
+            # Check if we can find the font file
+            font_path = find_system_font(font_name)
+            font_found = font_path is not None
+
+            # Calculate actual text width
+            text_width = calculate_text_width(text_content, font_name, font_size, font_path)
+
+            # Estimate placeholder width (assume 400px default if not specified)
+            # In a real implementation, this would come from AEPX placeholder bounds
+            placeholder_width = 400.0  # Default placeholder width
+
+            # Check for overflow based on actual metrics
+            if text_width and placeholder_width:
+                overflow_pixels = text_width - placeholder_width
+                overflow_percent = (overflow_pixels / placeholder_width) * 100
+
+                if overflow_pixels > 0:
+                    # Text is wider than placeholder
+                    if overflow_percent > 20:
+                        conflicts.append({
+                            "id": f"CONF-{conflict_id}",
+                            "type": "TEXT_OVERFLOW",
+                            "severity": "critical",
+                            "mapping": mapping,
+                            "issue": f"Text width ({text_width:.1f}px) exceeds placeholder ({placeholder_width:.0f}px) by {overflow_pixels:.1f}px ({overflow_percent:.1f}%)",
+                            "suggestion": "Reduce text length, decrease font size, or increase placeholder width",
+                            "auto_fixable": False,
+                            "details": {
+                                "text_width": round(text_width, 1),
+                                "placeholder_width": placeholder_width,
+                                "overflow_pixels": round(overflow_pixels, 1),
+                                "overflow_percent": round(overflow_percent, 1),
+                                "font_name": font_name,
+                                "font_size": font_size,
+                                "font_found": font_found
+                            }
+                        })
+                        conflict_id += 1
+                    elif overflow_percent > 5:
+                        conflicts.append({
+                            "id": f"CONF-{conflict_id}",
+                            "type": "TEXT_OVERFLOW",
+                            "severity": "warning",
+                            "mapping": mapping,
+                            "issue": f"Text width ({text_width:.1f}px) slightly exceeds placeholder ({placeholder_width:.0f}px) by {overflow_pixels:.1f}px",
+                            "suggestion": "Consider reducing text or adjusting placeholder",
+                            "auto_fixable": False,
+                            "details": {
+                                "text_width": round(text_width, 1),
+                                "placeholder_width": placeholder_width,
+                                "overflow_pixels": round(overflow_pixels, 1),
+                                "overflow_percent": round(overflow_percent, 1),
+                                "font_name": font_name,
+                                "font_size": font_size,
+                                "font_found": font_found
+                            }
+                        })
+                        conflict_id += 1
+
+                # Warn if font file was not found
+                if not font_found:
+                    conflicts.append({
+                        "id": f"CONF-{conflict_id}",
+                        "type": "FONT_FILE_MISSING",
+                        "severity": "info",
+                        "mapping": mapping,
+                        "issue": f"Font file for '{font_name}' not found. Using estimated width.",
+                        "suggestion": "Upload font file for more accurate overflow detection",
+                        "auto_fixable": False,
+                        "details": {
+                            "font_name": font_name,
+                            "text_width_estimated": round(text_width, 1)
+                        }
+                    })
+                    conflict_id += 1
+
+        except Exception:
+            # Fall back to character count if font metrics fail
+            pass
+
+    # Fallback: If font metrics not available or failed, use character count
+    if text_width is None:
+        if text_length > cfg['text_length_critical']:
+            conflicts.append({
+                "id": f"CONF-{conflict_id}",
+                "type": "TEXT_OVERFLOW",
+                "severity": "critical",
+                "mapping": mapping,
+                "issue": f"Text is very long ({text_length} chars). Likely to overflow placeholder.",
+                "suggestion": f"Shorten text to under {cfg['text_length_critical']} characters.",
+                "auto_fixable": True
+            })
+            conflict_id += 1
+        elif text_length > cfg['text_length_warning']:
+            conflicts.append({
+                "id": f"CONF-{conflict_id}",
+                "type": "TEXT_OVERFLOW",
+                "severity": "warning",
+                "mapping": mapping,
+                "issue": f"Text is moderately long ({text_length} chars). May overflow.",
+                "suggestion": "Monitor text length or adjust placeholder size.",
+                "auto_fixable": True
+            })
+            conflict_id += 1
     
-    # Critical: Text too long (likely overflow)
-    if text_length > 100:
-        conflicts.append({
-            "type": "text_overflow",
-            "severity": "critical",
-            "mapping": mapping,
-            "issue": f"Text is very long ({text_length} chars). Likely to overflow placeholder.",
-            "suggestion": f"Consider shortening text to under 100 characters. Current: \"{text_content[:50]}...\""
-        })
-    
-    # Warning: Text moderately long
-    elif text_length > 50:
-        conflicts.append({
-            "type": "text_overflow",
-            "severity": "warning",
-            "mapping": mapping,
-            "issue": f"Text is moderately long ({text_length} chars). May overflow depending on font size.",
-            "suggestion": f"Monitor text length. Consider shortening if overflow occurs."
-        })
-    
-    # Check font size if available
+    # Font size check
     if 'text' in psd_layer and 'font_size' in psd_layer['text']:
         font_size = psd_layer['text']['font_size']
         
-        # Warning: Large font size
-        if font_size > 72:
+        if font_size > cfg['font_size_large']:
             conflicts.append({
-                "type": "font_size",
+                "id": f"CONF-{conflict_id}",
+                "type": "FONT_SIZE",
                 "severity": "warning",
                 "mapping": mapping,
-                "issue": f"Large font size ({font_size}pt) may not fit in template placeholder.",
-                "suggestion": "Verify placeholder can accommodate large text or reduce font size in PSD."
+                "issue": f"Large font size ({font_size}pt) may not fit placeholder.",
+                "suggestion": "Reduce font size or increase placeholder size.",
+                "auto_fixable": False
             })
-        
-        # Info: Very small font size
-        elif font_size < 12:
+            conflict_id += 1
+        elif font_size < cfg['font_size_small']:
             conflicts.append({
-                "type": "font_size",
+                "id": f"CONF-{conflict_id}",
+                "type": "FONT_SIZE",
                 "severity": "info",
                 "mapping": mapping,
                 "issue": f"Small font size ({font_size}pt) may be hard to read.",
-                "suggestion": "Consider increasing font size for better readability."
+                "suggestion": "Consider increasing font size for readability.",
+                "auto_fixable": False
             })
+            conflict_id += 1
     
     return conflicts
 
 
-def _check_image_conflicts(psd_layer: Dict[str, Any], mapping: Dict[str, Any], 
-                           main_comp: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Check for image-related conflicts."""
+def _check_image_conflicts(psd_layer: Dict, mapping: Dict, main_comp: Dict, 
+                           cfg: Dict, start_id: int) -> List[Dict]:
+    """Check image-related conflicts."""
     conflicts = []
+    conflict_id = start_id
     
     if not main_comp:
         return conflicts
     
-    psd_width = psd_layer.get('width', 0)
-    psd_height = psd_layer.get('height', 0)
-    comp_width = main_comp.get('width', 1920)
-    comp_height = main_comp.get('height', 1080)
+    psd_w, psd_h = psd_layer.get('width', 0), psd_layer.get('height', 0)
+    comp_w, comp_h = main_comp.get('width', 1920), main_comp.get('height', 1080)
     
-    # Calculate aspect ratios
-    psd_aspect = psd_width / psd_height if psd_height > 0 else 0
-    comp_aspect = comp_width / comp_height if comp_height > 0 else 0
+    psd_aspect = psd_w / psd_h if psd_h > 0 else 0
+    comp_aspect = comp_w / comp_h if comp_h > 0 else 0
     
-    # Check aspect ratio mismatch
+    # Aspect ratio mismatch
     if psd_aspect > 0 and comp_aspect > 0:
         aspect_diff = abs(psd_aspect - comp_aspect) / comp_aspect
         
-        if aspect_diff > 0.2:  # More than 20% difference
+        if aspect_diff > cfg['aspect_ratio_tolerance']:
             conflicts.append({
-                "type": "aspect_ratio",
+                "id": f"CONF-{conflict_id}",
+                "type": "ASPECT_RATIO_MISMATCH",
                 "severity": "warning",
                 "mapping": mapping,
-                "issue": f"Aspect ratio mismatch. PSD: {psd_aspect:.2f}, Template: {comp_aspect:.2f}",
-                "suggestion": "Image will be cropped or letterboxed. Adjust PSD dimensions or use object-fit options."
+                "issue": f"Aspect ratio mismatch. Image: {psd_aspect:.2f}, Template: {comp_aspect:.2f}",
+                "suggestion": "Crop or resize image to match template aspect ratio.",
+                "auto_fixable": True
             })
+            conflict_id += 1
     
-    # Check if image is too small (upscaling required)
-    if psd_width < comp_width * 0.5 or psd_height < comp_height * 0.5:
-        scale_factor = max(comp_width / psd_width, comp_height / psd_height)
+    # Resolution warning (upscaling)
+    scale_factor = max(comp_w / psd_w, comp_h / psd_h) if psd_w > 0 and psd_h > 0 else 1
+    
+    if scale_factor > cfg['upscale_warning_factor']:
         conflicts.append({
-            "type": "size_mismatch",
+            "id": f"CONF-{conflict_id}",
+            "type": "RESOLUTION_WARNING",
             "severity": "warning",
             "mapping": mapping,
-            "issue": f"Image is small ({psd_width}×{psd_height}). Will be upscaled {scale_factor:.1f}x. May look pixelated.",
-            "suggestion": f"Use higher resolution image (recommended: at least {comp_width//2}×{comp_height//2})."
+            "issue": f"Image will be upscaled {scale_factor:.1f}x. May look pixelated.",
+            "suggestion": f"Use higher resolution (recommend: {comp_w}×{comp_h} or larger).",
+            "auto_fixable": False
         })
-    
-    # Info: Image is much larger (downscaling)
-    elif psd_width > comp_width * 2 or psd_height > comp_height * 2:
+        conflict_id += 1
+    elif psd_w / comp_w < cfg['downscale_info_factor'] or psd_h / comp_h < cfg['downscale_info_factor']:
         conflicts.append({
-            "type": "size_mismatch",
+            "id": f"CONF-{conflict_id}",
+            "type": "DIMENSION_INFO",
             "severity": "info",
             "mapping": mapping,
-            "issue": f"Image is large ({psd_width}×{psd_height}). Will be downscaled from {comp_width}×{comp_height}.",
-            "suggestion": "Downscaling is fine. Consider optimizing file size if performance is a concern."
+            "issue": f"Image ({psd_w}×{psd_h}) is larger than needed. Will be downscaled.",
+            "suggestion": "Downscaling is fine. Consider optimizing file size if needed.",
+            "auto_fixable": False
         })
+        conflict_id += 1
     
     return conflicts
 
 
-def _check_dimension_mismatch(psd_data: Dict[str, Any], 
-                               main_comp: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Check for PSD to template dimension mismatches."""
+def _check_dimension_mismatch(psd_data: Dict, main_comp: Dict, cfg: Dict, start_id: int) -> List[Dict]:
+    """Check PSD to template dimension mismatches."""
     conflicts = []
     
-    psd_width = psd_data.get('width', 0)
-    psd_height = psd_data.get('height', 0)
-    comp_width = main_comp.get('width', 1920)
-    comp_height = main_comp.get('height', 1080)
+    psd_w, psd_h = psd_data.get('width', 0), psd_data.get('height', 0)
+    comp_w, comp_h = main_comp.get('width', 1920), main_comp.get('height', 1080)
     
-    # Calculate aspect ratios
-    psd_aspect = psd_width / psd_height if psd_height > 0 else 0
-    comp_aspect = comp_width / comp_height if comp_height > 0 else 0
+    if psd_w == comp_w and psd_h == comp_h:
+        return conflicts
     
-    # Check if dimensions don't match
-    if psd_width != comp_width or psd_height != comp_height:
-        aspect_diff = abs(psd_aspect - comp_aspect) / comp_aspect if comp_aspect > 0 else 0
-        
-        severity = "warning" if aspect_diff > 0.1 else "info"
-        
-        conflicts.append({
-            "type": "dimension_mismatch",
-            "severity": severity,
-            "mapping": {"psd_layer": "Document", "aepx_placeholder": "Composition"},
-            "issue": f"PSD ({psd_width}×{psd_height}) differs from template ({comp_width}×{comp_height}).",
-            "suggestion": "Content will be scaled/repositioned. Verify layout after import."
-        })
+    psd_aspect = psd_w / psd_h if psd_h > 0 else 0
+    comp_aspect = comp_w / comp_h if comp_h > 0 else 0
+    aspect_diff = abs(psd_aspect - comp_aspect) / comp_aspect if comp_aspect > 0 else 0
+    
+    severity = "warning" if aspect_diff > cfg['dimension_tolerance'] else "info"
+    
+    conflicts.append({
+        "id": f"CONF-{start_id}",
+        "type": "DIMENSION_INFO",
+        "severity": severity,
+        "mapping": {"psd_layer": "Document", "aepx_placeholder": "Composition"},
+        "issue": f"PSD ({psd_w}×{psd_h}) differs from template ({comp_w}×{comp_h}).",
+        "suggestion": "Content will be scaled/repositioned. Verify layout after import.",
+        "auto_fixable": False
+    })
     
     return conflicts

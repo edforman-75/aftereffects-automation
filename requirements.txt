@@ -1,0 +1,23 @@
+# Core Dependencies
+Flask==3.0.0
+flask-cors==4.0.0
+Werkzeug==3.0.1
+
+# Image Processing
+Pillow==10.1.0
+psd-tools>=1.9.0
+
+# Font Handling
+fonttools>=4.38.0
+
+# ML/NLP for Layer Matching
+sentence-transformers>=2.2.0
+
+# Mac Menu Bar App (macOS only)
+rumps>=0.4.0
+
+# XML Parsing (for AEPX files)
+lxml>=4.9.3
+
+# Environment Variables
+python-dotenv>=1.0.0

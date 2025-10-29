@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>After Effects Automation</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>After Effects Automation</h1>
+                <p class="subtitle">Automate template population with intelligent content matching</p>
+            </div>
+            <div class="header-actions">
+                <a href="/projects-page" class="settings-link">📁 Projects</a>
+                <a href="/settings-page" class="settings-link">⚙️ Settings</a>
+            </div>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="card upload-section">
+            <h2>1. Upload Files</h2>
+            <div class="upload-grid">
+                <div class="upload-box" id="psdDropZone">
+                    <div class="upload-icon">📄</div>
+                    <h3>PSD File</h3>
+                    <p>Drag & drop or click to select</p>
+                    <input type="file" id="psdInput" accept=".psd" hidden>
+                    <div class="file-info" id="psdInfo"></div>
+                </div>
+                <div class="upload-box" id="aepxDropZone">
+                    <div class="upload-icon">🎬</div>
+                    <h3>AEPX/AEP Template</h3>
+                    <p>Drag & drop or click to select</p>
+                    <input type="file" id="aepxInput" accept=".aepx,.aep" hidden>
+                    <div class="file-info" id="aepxInfo"></div>
+                </div>
+            </div>
+            <button id="uploadBtn" class="btn btn-primary" disabled>Upload & Analyze</button>
+            <div class="status-message" id="uploadStatus"></div>
+        </section>
+
+        <!-- File Info Section -->
+        <section class="card info-section" id="infoSection" style="display: none;">
+            <h2>File Information</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>PSD Details</h3>
+                    <div id="psdDetails"></div>
+                </div>
+                <div class="info-card">
+                    <h3>Template Details</h3>
+                    <div id="aepxDetails"></div>
+                </div>
+                <div class="info-card">
+                    <h3>Font Check</h3>
+                    <div id="fontDetails"></div>
+                </div>
+            </div>
+            <button id="checkFontsBtn" class="btn btn-primary" style="display: none;">Check Fonts</button>
+        </section>
+
+        <!-- Font Check Section -->
+        <section class="card font-section" id="fontSection" style="display: none;">
+            <h2>1.5. Font Check</h2>
+            <p class="section-description">Verify that required fonts are available</p>
+            <div class="font-status" id="fontStatus"></div>
+            <div id="fontList"></div>
+            <div class="font-actions" id="fontActions" style="display: none;">
+                <div class="upload-box-small">
+                    <p>Upload missing fonts (TTF, OTF, WOFF)</p>
+                    <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2" multiple hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('fontInput').click()">
+                        Choose Font Files
+                    </button>
+                </div>
+                <button id="skipFontsBtn" class="btn btn-secondary">Continue Without Fonts</button>
+            </div>
+            <div class="status-message" id="fontUploadStatus"></div>
+            <button id="matchBtn" class="btn btn-primary" style="display: none;">Match Content</button>
+        </section>
+
+        <!-- Mappings Section -->
+        <section class="card mappings-section" id="mappingsSection" style="display: none;">
+            <h2>2. Content Mappings</h2>
+            <p class="section-description">Click a PSD layer, then click an AEPX placeholder to create a mapping</p>
+
+            <div class="mapping-controls">
+                <button id="loadPreviewsBtn" class="btn btn-primary">Load Visual Previews</button>
+                <button id="resetMappingsBtn" class="btn btn-secondary">Reset to Auto-Match</button>
+                <button id="clearSelectionBtn" class="btn btn-secondary" style="display: none;">Clear Selection</button>
+            </div>
+
+            <div class="status-message" id="mappingLoadStatus"></div>
+
+            <!-- Visual Mapping Interface -->
+            <div class="visual-mapping-container" id="visualMappingContainer" style="display: none;">
+                <div class="mapping-panel">
+                    <div class="panel-header">
+                        <h3>PSD Layers</h3>
+                        <span class="panel-subtitle">Click to select</span>
+                    </div>
+                    <div class="preview-grid" id="psdLayersGrid"></div>
+                </div>
+
+                <div class="mapping-center">
+                    <div class="mapping-arrow">→</div>
+                    <div class="current-mappings-list" id="currentMappingsList">
+                        <h4>Current Mappings</h4>
+                        <div id="mappingsList"></div>
+                    </div>
+                </div>
+
+                <div class="mapping-panel">
+                    <div class="panel-header">
+                        <h3>AEPX Placeholders</h3>
+                        <span class="panel-subtitle">Click to map to selected layer</span>
+                    </div>
+                    <div class="preview-grid" id="aepxPlaceholdersGrid"></div>
+                </div>
+            </div>
+
+            <div class="mapping-stats" id="mappingStats"></div>
+        </section>
+
+        <!-- Conflicts Section -->
+        <section class="card conflicts-section" id="conflictsSection" style="display: none;">
+            <h2>3. Conflicts & Warnings</h2>
+            <div class="conflict-summary" id="conflictSummary"></div>
+            <div id="conflictsList"></div>
+        </section>
+
+        <!-- Preview Section -->
+        <section class="card preview-section" id="previewSection" style="display: none;">
+            <h2>4. Preview Video</h2>
+            <p class="section-description">Generate a preview of your populated template</p>
+
+            <div id="previewControls">
+                <button id="generatePreviewBtn" class="btn btn-primary btn-large">Generate Preview</button>
+                <button id="skipPreviewBtn" class="btn btn-secondary" style="margin-left: 10px;">Skip Preview</button>
+            </div>
+
+            <div class="status-message" id="previewStatus"></div>
+
+            <div id="previewPlayer" style="display: none;">
+                <div class="video-container">
+                    <video id="previewVideo" controls style="width: 100%; max-width: 800px; border-radius: 10px; box-shadow: var(--shadow-lg);">
+                        <source id="previewSource" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="preview-info" id="previewInfo" style="margin-top: 15px; text-align: center;"></div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button id="proceedToGenerateBtn" class="btn btn-success btn-large">Looks Good! Generate Full Script</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Generate Section -->
+        <section class="card generate-section" id="generateSection" style="display: none;">
+            <h2>5. Generate Script</h2>
+            <p class="section-description">Create the ExtendScript file for After Effects</p>
+            <button id="generateBtn" class="btn btn-primary btn-large">Generate ExtendScript</button>
+            <div class="status-message" id="generateStatus"></div>
+            <div id="downloadSection" style="display: none;">
+                <a id="downloadLink" class="btn btn-success btn-large" download>Download Script</a>
+                <div class="instructions">
+                    <h3>Next Steps:</h3>
+                    <ol>
+                        <li>Open After Effects</li>
+                        <li>Open your template file</li>
+                        <li>Run: File → Scripts → Run Script File</li>
+                        <li>Select the downloaded .jsx file</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // State
+        let sessionId = null;
+        let psdFile = null;
+        let aepxFile = null;
+        let currentMappings = [];
+        let originalMappings = [];
+        let allPsdLayers = [];
+        let allPlaceholders = [];
+        let unmappedPsdLayers = [];
+        let unfilledPlaceholders = [];
+        let fontsChecked = false;
+        let missingFonts = [];
+
+        // Visual mapping state
+        let psdLayerPreviews = {};
+        let aepxPlaceholderPreviews = {};
+        let selectedPsdLayer = null;
+        let previewsLoaded = false;
+
+        // DOM Elements
+        const psdDropZone = document.getElementById('psdDropZone');
+        const aepxDropZone = document.getElementById('aepxDropZone');
+        const psdInput = document.getElementById('psdInput');
+        const aepxInput = document.getElementById('aepxInput');
+        const fontInput = document.getElementById('fontInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const matchBtn = document.getElementById('matchBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const skipFontsBtn = document.getElementById('skipFontsBtn');
+
+        // Utility: Show status message
+        function showStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = `status-message status-${type}`;
+            el.style.display = 'block';
+        }
+
+        // Utility: Hide status message
+        function hideStatus(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        // Setup drag & drop
+        function setupDropZone(dropZone, input, infoId) {
+            dropZone.addEventListener('click', () => input.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files.length > 0) {
+                    input.files = e.dataTransfer.files;
+                    handleFileSelect(input, infoId);
+                }
+            });
+
+            input.addEventListener('change', () => handleFileSelect(input, infoId));
+        }
+
+        // Handle file selection
+        function handleFileSelect(input, infoId) {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                const fileInfo = document.getElementById(infoId);
+                fileInfo.innerHTML = `<strong>${file.name}</strong><br><small>${(file.size / 1024 / 1024).toFixed(2)} MB</small>`;
+
+                if (input === psdInput) psdFile = file;
+                if (input === aepxInput) aepxFile = file;
+
+                // Enable upload button if both files selected
+                uploadBtn.disabled = !(psdFile && aepxFile);
+            }
+        }
+
+        // Upload files
+        async function uploadFiles() {
+            const formData = new FormData();
+            formData.append('psd_file', psdFile);
+            formData.append('aepx_file', aepxFile);
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            showStatus('uploadStatus', 'Uploading and analyzing files...', 'info');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    sessionId = result.data.session_id;
+                    showStatus('uploadStatus', result.message, 'success');
+                    displayFileInfo(result.data);
+                    document.getElementById('infoSection').style.display = 'block';
+                } else {
+                    showStatus('uploadStatus', result.message, 'error');
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = 'Upload & Analyze';
+                }
+            } catch (error) {
+                showStatus('uploadStatus', `Error: ${error.message}`, 'error');
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload & Analyze';
+            }
+        }
+
+        // Display file info
+        function displayFileInfo(data) {
+            document.getElementById('psdDetails').innerHTML = `
+                <p><strong>File:</strong> ${data.psd.filename}</p>
+                <p><strong>Dimensions:</strong> ${data.psd.width} × ${data.psd.height}</p>
+                <p><strong>Layers:</strong> ${data.psd.layers}</p>
+            `;
+
+            document.getElementById('aepxDetails').innerHTML = `
+                <p><strong>File:</strong> ${data.aepx.filename}</p>
+                <p><strong>Composition:</strong> ${data.aepx.composition}</p>
+                <p><strong>Placeholders:</strong> ${data.aepx.placeholders}</p>
+            `;
+
+            let fontHtml = `<p><strong>Total Fonts:</strong> ${data.fonts.total}</p>`;
+            if (data.fonts.uncommon > 0) {
+                fontHtml += `<p class="warning"><strong>Uncommon Fonts:</strong> ${data.fonts.uncommon}</p>`;
+                fontHtml += `<ul class="font-list">`;
+                data.fonts.uncommon_list.forEach(font => {
+                    fontHtml += `<li>${font}</li>`;
+                });
+                fontHtml += `</ul>`;
+            } else {
+                fontHtml += `<p class="success">All fonts are common</p>`;
+            }
+            document.getElementById('fontDetails').innerHTML = fontHtml;
+
+            // Auto-check fonts
+            checkFonts();
+        }
+
+        // Check fonts
+        async function checkFonts() {
+            try {
+                const response = await fetch('/check-fonts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayFontStatus(result.data);
+                    document.getElementById('fontSection').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error checking fonts:', error);
+            }
+        }
+
+        // Display font status
+        function displayFontStatus(data) {
+            missingFonts = data.missing_fonts || [];
+            const statusEl = document.getElementById('fontStatus');
+            const listEl = document.getElementById('fontList');
+
+            if (data.missing_count === 0) {
+                statusEl.innerHTML = '<p class="success">✅ All required fonts are available!</p>';
+                fontsChecked = true;
+                document.getElementById('matchBtn').style.display = 'inline-block';
+            } else {
+                statusEl.innerHTML = `<p class="warning">⚠️ ${data.missing_count} font(s) missing</p>`;
+                document.getElementById('fontActions').style.display = 'block';
+            }
+
+            // Display fonts as visual cards
+            let html = '<div class="font-cards-grid">';
+
+            // Show required fonts with status
+            data.required_fonts.forEach(font => {
+                const isMissing = data.missing_fonts.includes(font);
+                const isInstalled = data.installed_fonts.includes(font);
+                const previewPath = data.previews && data.previews[font] ? data.previews[font] : null;
+                const metadata = data.metadata && data.metadata[font] ? data.metadata[font] : null;
+
+                // Card class based on status
+                const cardClass = isInstalled ? 'font-card-installed' : 'font-card-missing';
+
+                html += `
+                    <div class="font-card ${cardClass}">
+                        <div class="font-card-header">
+                            <div class="font-card-status">
+                                <span class="status-badge ${isInstalled ? 'status-success' : 'status-error'}">
+                                    ${isInstalled ? '✓ Installed' : '✗ Missing'}
+                                </span>
+                            </div>
+                            <h4 class="font-card-name">${font}</h4>
+                        </div>
+
+                        <div class="font-card-preview">
+                            ${previewPath ? `<img src="${previewPath}" alt="${font} preview" class="font-preview-image">` : '<div class="font-preview-placeholder">No preview</div>'}
+                        </div>
+
+                        <div class="font-card-footer">
+                            ${metadata ? `
+                                <div class="font-metadata">
+                                    <span class="font-format">${metadata.format}</span>
+                                    <span class="font-size">${metadata.size}</span>
+                                </div>
+                            ` : ''}
+                            ${isMissing ? `
+                                <button class="btn btn-small btn-upload-font" onclick="document.getElementById('fontInput').click()">
+                                    Upload Font
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            listEl.innerHTML = html;
+        }
+
+        // Upload fonts
+        async function uploadFonts() {
+            const files = fontInput.files;
+            if (files.length === 0) return;
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('font_files', files[i]);
+            }
+
+            showStatus('fontUploadStatus', 'Uploading fonts...', 'info');
+
+            try {
+                const response = await fetch('/upload-fonts', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('fontUploadStatus', result.message, 'success');
+                    // Re-check fonts after upload
+                    checkFonts();
+                    fontInput.value = '';
+                } else {
+                    showStatus('fontUploadStatus', result.message, 'error');
+                }
+            } catch (error) {
+                showStatus('fontUploadStatus', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Skip font check
+        function skipFonts() {
+            fontsChecked = true;
+            document.getElementById('matchBtn').style.display = 'inline-block';
+            document.getElementById('fontActions').style.display = 'none';
+            showStatus('fontUploadStatus', 'Continuing without font check. Ensure fonts are installed in After Effects.', 'info');
+        }
+
+        // Match content
+        async function matchContent() {
+            matchBtn.disabled = true;
+            matchBtn.textContent = 'Matching...';
+
+            try {
+                const response = await fetch('/match', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentMappings = result.data.mappings;
+                    originalMappings = JSON.parse(JSON.stringify(result.data.mappings));
+
+                    // Extract all layers and placeholders for visual mapping
+                    allPsdLayers = result.data.mappings.map(m => m.psd_layer)
+                        .concat(result.data.unmapped_psd || []);
+                    allPlaceholders = result.data.mappings.map(m => m.aepx_placeholder)
+                        .concat(result.data.unfilled_placeholders || []);
+
+                    displayMappings(result.data);
+                    displayConflicts(result.data.conflicts);
+                    document.getElementById('mappingsSection').style.display = 'block';
+                    document.getElementById('conflictsSection').style.display = 'block';
+                    document.getElementById('previewSection').style.display = 'block';
+                } else {
+                    alert(result.message);
+                    matchBtn.disabled = false;
+                    matchBtn.textContent = 'Match Content';
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                matchBtn.disabled = false;
+                matchBtn.textContent = 'Match Content';
+            }
+        }
+
+        // Display mappings
+        function displayMappings(data) {
+            const mappingsList = document.getElementById('mappingsList');
+            let html = '<div class="mappings-grid">';
+
+            data.mappings.forEach((mapping, index) => {
+                const confidence = (mapping.confidence * 100).toFixed(0);
+                const confidenceClass = mapping.confidence >= 0.9 ? 'high' :
+                                       mapping.confidence >= 0.6 ? 'medium' : 'low';
+                const icon = mapping.type === 'text' ? '📝' : '🖼️';
+
+                html += `
+                    <div class="mapping-card">
+                        <div class="mapping-header">
+                            <span class="mapping-icon">${icon}</span>
+                            <span class="mapping-type">${mapping.type}</span>
+                            <span class="confidence confidence-${confidenceClass}">${confidence}%</span>
+                        </div>
+                        <div class="mapping-content">
+                            <div class="mapping-source">
+                                <strong>PSD:</strong> ${mapping.psd_layer}
+                            </div>
+                            <div class="mapping-arrow">→</div>
+                            <div class="mapping-target">
+                                <strong>Template:</strong> ${mapping.aepx_placeholder}
+                            </div>
+                        </div>
+                        <div class="mapping-actions">
+                            <button class="btn-preview-mapping"
+                                    onclick="previewMapping('${mapping.psd_layer}', '${mapping.aepx_placeholder}')">
+                                👁 Preview Mapping
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            // Add stats
+            const statsHtml = `
+                <p><strong>Mappings Created:</strong> ${data.mappings.length}</p>
+                ${data.unmapped_psd.length > 0 ? `<p class="warning"><strong>Unmapped PSD Layers:</strong> ${data.unmapped_psd.join(', ')}</p>` : ''}
+                ${data.unfilled_placeholders.length > 0 ? `<p class="warning"><strong>Unfilled Placeholders:</strong> ${data.unfilled_placeholders.join(', ')}</p>` : ''}
+            `;
+
+            mappingsList.innerHTML = html;
+            document.getElementById('mappingStats').innerHTML = statsHtml;
+        }
+
+        // Visual Mapping Functions
+        async function loadVisualPreviews() {
+            const loadBtn = document.getElementById('loadPreviewsBtn');
+            const statusEl = document.getElementById('mappingLoadStatus');
+
+            loadBtn.disabled = true;
+            statusEl.textContent = '⏳ Loading preview images...';
+            statusEl.className = 'status-message status-info';
+            statusEl.style.display = 'block';
+
+            try {
+                // Load PSD previews
+                const psdResponse = await fetch('/render-psd-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                if (!psdResponse.ok) {
+                    throw new Error('Failed to load PSD previews');
+                }
+
+                const psdData = await psdResponse.json();
+                psdLayerPreviews = psdData.data.layer_previews;
+
+                // Load AEPX previews
+                const aepxResponse = await fetch('/render-aepx-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                if (!aepxResponse.ok) {
+                    throw new Error('Failed to load AEPX previews');
+                }
+
+                const aepxData = await aepxResponse.json();
+                aepxPlaceholderPreviews = aepxData.data.placeholder_previews;
+
+                previewsLoaded = true;
+
+                // Display visual mapping interface
+                displayVisualMappingInterface();
+
+                statusEl.textContent = '✅ Preview images loaded successfully';
+                statusEl.className = 'status-message status-success';
+
+                // Hide load button after successful load
+                setTimeout(() => {
+                    loadBtn.style.display = 'none';
+                }, 2000);
+
+            } catch (error) {
+                statusEl.textContent = `❌ ${error.message}`;
+                statusEl.className = 'status-message status-error';
+                loadBtn.disabled = false;
+            }
+        }
+
+        function displayVisualMappingInterface() {
+            const container = document.getElementById('visualMappingContainer');
+            const psdGrid = document.getElementById('psdLayersGrid');
+            const aepxGrid = document.getElementById('aepxPlaceholdersGrid');
+
+            // Show container
+            container.style.display = 'grid';
+
+            // Render PSD layers
+            psdGrid.innerHTML = '';
+            allPsdLayers.forEach(layerName => {
+                const previewUrl = psdLayerPreviews[layerName];
+                const isMapped = currentMappings.some(m => m.psd_layer === layerName);
+
+                const item = document.createElement('div');
+                item.className = `preview-item ${isMapped ? 'mapped' : ''}`;
+                item.dataset.layerName = layerName;
+                item.innerHTML = `
+                    <img src="${previewUrl}" alt="${layerName}" class="preview-image"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>?</text></svg>'">
+                    <div class="preview-name">${layerName}</div>
+                    <div class="preview-type">PSD Layer</div>
+                `;
+
+                item.addEventListener('click', () => selectPsdLayer(layerName, item));
+                psdGrid.appendChild(item);
+            });
+
+            // Render AEPX placeholders
+            aepxGrid.innerHTML = '';
+            allPlaceholders.forEach(placeholderName => {
+                const previewUrl = aepxPlaceholderPreviews[placeholderName];
+                const isMapped = currentMappings.some(m => m.aepx_placeholder === placeholderName);
+
+                const item = document.createElement('div');
+                item.className = `preview-item ${isMapped ? 'mapped' : ''}`;
+                item.dataset.placeholderName = placeholderName;
+                item.innerHTML = `
+                    <img src="${previewUrl}" alt="${placeholderName}" class="preview-image"
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>?</text></svg>'">
+                    <div class="preview-name">${placeholderName}</div>
+                    <div class="preview-type">AEPX Placeholder</div>
+                `;
+
+                item.addEventListener('click', () => selectAepxPlaceholder(placeholderName));
+                aepxGrid.appendChild(item);
+            });
+
+            // Update mappings list
+            updateVisualMappingsList();
+        }
+
+        function selectPsdLayer(layerName, element) {
+            // Deselect previous selection
+            document.querySelectorAll('#psdLayersGrid .preview-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // Select this layer
+            selectedPsdLayer = layerName;
+            element.classList.add('selected');
+
+            // Show clear selection button
+            document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+
+            showStatus('mappingLoadStatus', `Selected PSD layer: ${layerName}. Now click an AEPX placeholder to create mapping.`, 'info');
+        }
+
+        function selectAepxPlaceholder(placeholderName) {
+            if (!selectedPsdLayer) {
+                showStatus('mappingLoadStatus', 'Please select a PSD layer first', 'warning');
+                return;
+            }
+
+            // Check if placeholder is already mapped
+            const existingMappingIndex = currentMappings.findIndex(m => m.aepx_placeholder === placeholderName);
+            if (existingMappingIndex !== -1) {
+                // Remove existing mapping for this placeholder
+                currentMappings.splice(existingMappingIndex, 1);
+            }
+
+            // Check if PSD layer is already mapped
+            const psdMappingIndex = currentMappings.findIndex(m => m.psd_layer === selectedPsdLayer);
+            if (psdMappingIndex !== -1) {
+                // Remove existing mapping for this PSD layer
+                currentMappings.splice(psdMappingIndex, 1);
+            }
+
+            // Create new mapping
+            currentMappings.push({
+                psd_layer: selectedPsdLayer,
+                aepx_placeholder: placeholderName,
+                type: 'manual',
+                confidence: 1.0
+            });
+
+            showStatus('mappingLoadStatus', `✅ Mapped ${selectedPsdLayer} → ${placeholderName}`, 'success');
+
+            // Clear selection
+            clearPsdSelection();
+
+            // Update visual display
+            displayVisualMappingInterface();
+        }
+
+        function clearPsdSelection() {
+            selectedPsdLayer = null;
+            document.querySelectorAll('#psdLayersGrid .preview-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.getElementById('clearSelectionBtn').style.display = 'none';
+        }
+
+        function updateVisualMappingsList() {
+            const mappingsList = document.getElementById('mappingsList');
+            const statsEl = document.getElementById('mappingStats');
+
+            if (currentMappings.length === 0) {
+                mappingsList.innerHTML = '<p style="text-align: center; color: #666;">No mappings yet</p>';
+            } else {
+                let html = '';
+                currentMappings.forEach((mapping, index) => {
+                    html += `
+                        <div class="mapping-item-compact">
+                            <div class="mapping-pair">
+                                <div class="from-layer">📄 ${mapping.psd_layer}</div>
+                                <div style="text-align: center; color: #999;">↓</div>
+                                <div class="to-placeholder">🎬 ${mapping.aepx_placeholder}</div>
+                            </div>
+                            <button class="delete-mapping" onclick="deleteVisualMapping(${index})">Delete</button>
+                        </div>
+                    `;
+                });
+                mappingsList.innerHTML = html;
+            }
+
+            // Update stats
+            const mappedPsdCount = new Set(currentMappings.map(m => m.psd_layer)).size;
+            const mappedPlaceholdersCount = new Set(currentMappings.map(m => m.aepx_placeholder)).size;
+            const unmappedPsdCount = allPsdLayers.length - mappedPsdCount;
+            const unmappedPlaceholdersCount = allPlaceholders.length - mappedPlaceholdersCount;
+
+            statsEl.innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-number">${currentMappings.length}</span> Total Mappings
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">${unmappedPsdCount}</span> Unmapped Layers
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">${unmappedPlaceholdersCount}</span> Unfilled Placeholders
+                </div>
+            `;
+        }
+
+        function deleteVisualMapping(index) {
+            currentMappings.splice(index, 1);
+            displayVisualMappingInterface();
+            showStatus('mappingLoadStatus', 'Mapping deleted', 'info');
+        }
+
+        function resetMappings() {
+            if (confirm('Reset to auto-generated mappings? This will discard your manual changes.')) {
+                currentMappings = JSON.parse(JSON.stringify(originalMappings));
+                if (previewsLoaded) {
+                    displayVisualMappingInterface();
+                }
+                showStatus('mappingLoadStatus', '✅ Mappings reset to auto-match', 'success');
+            }
+        }
+
+        // Display conflicts
+        function displayConflicts(conflicts) {
+            const summary = document.getElementById('conflictSummary');
+            const list = document.getElementById('conflictsList');
+
+            const summaryHtml = `
+                <div class="conflict-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">${conflicts.total}</span>
+                        <span class="stat-label">Total Issues</span>
+                    </div>
+                    <div class="stat-item critical">
+                        <span class="stat-number">${conflicts.critical}</span>
+                        <span class="stat-label">Critical</span>
+                    </div>
+                    <div class="stat-item warning">
+                        <span class="stat-number">${conflicts.warning}</span>
+                        <span class="stat-label">Warnings</span>
+                    </div>
+                    <div class="stat-item info">
+                        <span class="stat-number">${conflicts.info}</span>
+                        <span class="stat-label">Info</span>
+                    </div>
+                </div>
+            `;
+
+            let listHtml = '';
+            if (conflicts.items.length > 0) {
+                listHtml = '<div class="conflicts-list">';
+                conflicts.items.forEach(conflict => {
+                    const icon = conflict.severity === 'critical' ? '🔴' :
+                                conflict.severity === 'warning' ? '⚠️' : 'ℹ️';
+                    listHtml += `
+                        <div class="conflict-item conflict-${conflict.severity}">
+                            <span class="conflict-icon">${icon}</span>
+                            <div class="conflict-details">
+                                <strong>${conflict.type}</strong>
+                                <p>${conflict.issue}</p>
+                                ${conflict.suggestion ? `<p class="suggestion">💡 ${conflict.suggestion}</p>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                listHtml += '</div>';
+            } else {
+                listHtml = '<p class="success">✅ No conflicts detected!</p>';
+            }
+
+            summary.innerHTML = summaryHtml;
+            list.innerHTML = listHtml;
+        }
+
+        // Generate script
+        async function generateScript() {
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            showStatus('generateStatus', 'Generating ExtendScript...', 'info');
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        mappings: currentMappings
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('generateStatus', result.message, 'success');
+                    displayDownload(result.data);
+                } else {
+                    showStatus('generateStatus', result.message, 'error');
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate ExtendScript';
+                }
+            } catch (error) {
+                showStatus('generateStatus', `Error: ${error.message}`, 'error');
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate ExtendScript';
+            }
+        }
+
+        // Display download
+        function displayDownload(data) {
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = data.download_url;
+            downloadLink.download = data.filename;
+            document.getElementById('downloadSection').style.display = 'block';
+        }
+
+        // Generate preview
+        async function generatePreview() {
+            const generatePreviewBtn = document.getElementById('generatePreviewBtn');
+            const skipPreviewBtn = document.getElementById('skipPreviewBtn');
+
+            generatePreviewBtn.disabled = true;
+            skipPreviewBtn.disabled = true;
+            showStatus('previewStatus', 'Generating preview... This may take 10-30 seconds.', 'info');
+
+            try {
+                const response = await fetch('/generate-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        options: {
+                            resolution: 'half',
+                            duration: 5.0,
+                            format: 'mp4',
+                            quality: 'draft',
+                            fps: 15
+                        }
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayPreview(result.data);
+                    showStatus('previewStatus', 'Preview generated successfully!', 'success');
+                } else {
+                    if (result.aerender_available === false) {
+                        showStatus('previewStatus', result.message + ' You can skip preview and generate script directly.', 'error');
+                        skipPreviewBtn.disabled = false;
+                    } else {
+                        showStatus('previewStatus', result.message, 'error');
+                    }
+                    generatePreviewBtn.disabled = false;
+                    skipPreviewBtn.disabled = false;
+                }
+            } catch (error) {
+                showStatus('previewStatus', 'Error: ' + error.message, 'error');
+                generatePreviewBtn.disabled = false;
+                skipPreviewBtn.disabled = false;
+            }
+        }
+
+        // Display preview video
+        function displayPreview(data) {
+            const previewPlayer = document.getElementById('previewPlayer');
+            const previewVideo = document.getElementById('previewVideo');
+            const previewSource = document.getElementById('previewSource');
+            const previewInfo = document.getElementById('previewInfo');
+            const previewControls = document.getElementById('previewControls');
+
+            // Set video source
+            previewSource.src = data.preview_url;
+            previewVideo.load();
+
+            // Display preview info
+            let infoHTML = '<p style="color: var(--text-secondary);">';
+            if (data.resolution) {
+                infoHTML += `<strong>Resolution:</strong> ${data.resolution} &nbsp;&nbsp;`;
+            }
+            if (data.duration) {
+                infoHTML += `<strong>Duration:</strong> ${data.duration.toFixed(1)}s`;
+            }
+            infoHTML += '</p>';
+            previewInfo.innerHTML = infoHTML;
+
+            // Show player, hide controls
+            previewPlayer.style.display = 'block';
+            previewControls.style.display = 'none';
+        }
+
+        // Skip preview
+        function skipPreview() {
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('generateSection').style.display = 'block';
+        }
+
+        // Proceed to generate script after preview
+        function proceedToGenerate() {
+            document.getElementById('generateSection').style.display = 'block';
+            window.scrollTo({
+                top: document.getElementById('generateSection').offsetTop - 20,
+                behavior: 'smooth'
+            });
+        }
+
+        // Event listeners
+        setupDropZone(psdDropZone, psdInput, 'psdInfo');
+        setupDropZone(aepxDropZone, aepxInput, 'aepxInfo');
+        uploadBtn.addEventListener('click', uploadFiles);
+        fontInput.addEventListener('change', uploadFonts);
+        skipFontsBtn.addEventListener('click', skipFonts);
+        matchBtn.addEventListener('click', matchContent);
+        document.getElementById('loadPreviewsBtn').addEventListener('click', loadVisualPreviews);
+        document.getElementById('resetMappingsBtn').addEventListener('click', resetMappings);
+        document.getElementById('clearSelectionBtn').addEventListener('click', clearPsdSelection);
+        document.getElementById('generatePreviewBtn').addEventListener('click', generatePreview);
+        document.getElementById('skipPreviewBtn').addEventListener('click', skipPreview);
+        document.getElementById('proceedToGenerateBtn').addEventListener('click', proceedToGenerate);
+        generateBtn.addEventListener('click', generateScript);
+
+        // Preview mapping function
+        async function previewMapping(psdLayer, aepxPlaceholder) {
+            try {
+                showStatus('mappingStatus', 'Generating preview...', 'info');
+
+                const response = await fetch('/generate-mapping-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        psd_layer: psdLayer,
+                        aepx_placeholder: aepxPlaceholder
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('mappingStatus', '', 'info');
+                    showMappingPreviewModal(result, psdLayer, aepxPlaceholder);
+                } else {
+                    showStatus('mappingStatus', `Preview failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error generating mapping preview:', error);
+                showStatus('mappingStatus', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Show mapping preview modal
+        function showMappingPreviewModal(previewData, psdLayer, aepxPlaceholder) {
+            const modal = document.getElementById('mappingPreviewModal');
+            document.getElementById('modalPsdLayer').textContent = psdLayer;
+            document.getElementById('modalAepxPlaceholder').textContent = aepxPlaceholder;
+            document.getElementById('modalCompositeImage').src = previewData.preview_path;
+            modal.style.display = 'flex';
+        }
+
+        // Close modal when clicking outside or on close button
+        window.onclick = function(event) {
+            const modal = document.getElementById('mappingPreviewModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function closeMappingPreviewModal() {
+            document.getElementById('mappingPreviewModal').style.display = 'none';
+        }
+    </script>
+
+    <!-- Mapping Preview Modal -->
+    <div id="mappingPreviewModal" class="preview-modal">
+        <div class="preview-modal-content">
+            <div class="preview-modal-header">
+                <h2>Mapping Preview</h2>
+                <button class="preview-modal-close" onclick="closeMappingPreviewModal()">&times;</button>
+            </div>
+            <div class="preview-modal-body">
+                <div class="preview-mapping-info">
+                    <div class="preview-mapping-source">
+                        <strong>PSD Layer:</strong>
+                        <span id="modalPsdLayer"></span>
+                    </div>
+                    <div class="preview-mapping-arrow">→</div>
+                    <div class="preview-mapping-target">
+                        <strong>AEPX Placeholder:</strong>
+                        <span id="modalAepxPlaceholder"></span>
+                    </div>
+                </div>
+                <div class="preview-composite-container">
+                    <img id="modalCompositeImage" alt="Mapping preview" class="preview-composite-image">
+                </div>
+                <div class="preview-legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #667eea;"></span>
+                        <span>PSD Layer</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #10b981;"></span>
+                        <span>Overlay Result</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #f59e0b;"></span>
+                        <span>AEPX Placeholder</span>
+                    </div>
+                </div>
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-secondary" onclick="closeMappingPreviewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

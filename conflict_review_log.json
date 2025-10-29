@@ -1,0 +1,55 @@
+{
+  "timestamp": "2025-10-26T15:43:30.765774",
+  "psd_file": "test-photoshop-doc.psd",
+  "aepx_file": "test-after-effects-project.aepx",
+  "total_conflicts": 3,
+  "decisions": {
+    "CONF-1": "accept",
+    "CONF-2": "accept",
+    "CONF-3": "accept"
+  },
+  "conflicts": [
+    {
+      "id": "CONF-1",
+      "type": "ASPECT_RATIO_MISMATCH",
+      "severity": "warning",
+      "mapping": {
+        "psd_layer": "cutout",
+        "aepx_placeholder": "featuredimage1",
+        "type": "image",
+        "confidence": 0.6000000000000001,
+        "reason": "Name similarity match (score: 0.60), smartobject type"
+      },
+      "issue": "Aspect ratio mismatch. Image: 0.44, Template: 1.78",
+      "suggestion": "Crop or resize image to match template aspect ratio.",
+      "auto_fixable": true
+    },
+    {
+      "id": "CONF-2",
+      "type": "RESOLUTION_WARNING",
+      "severity": "warning",
+      "mapping": {
+        "psd_layer": "cutout",
+        "aepx_placeholder": "featuredimage1",
+        "type": "image",
+        "confidence": 0.6000000000000001,
+        "reason": "Name similarity match (score: 0.60), smartobject type"
+      },
+      "issue": "Image will be upscaled 2.9x. May look pixelated.",
+      "suggestion": "Use higher resolution (recommend: 1920\u00d71080 or larger).",
+      "auto_fixable": false
+    },
+    {
+      "id": "CONF-3",
+      "type": "DIMENSION_INFO",
+      "severity": "warning",
+      "mapping": {
+        "psd_layer": "Document",
+        "aepx_placeholder": "Composition"
+      },
+      "issue": "PSD (1200\u00d71500) differs from template (1920\u00d71080).",
+      "suggestion": "Content will be scaled/repositioned. Verify layout after import.",
+      "auto_fixable": false
+    }
+  ]
+}

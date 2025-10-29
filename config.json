@@ -1,0 +1,32 @@
+{
+  "directories": {
+    "upload_dir": "uploads",
+    "preview_dir": "previews",
+    "output_dir": "output",
+    "fonts_dir": "fonts",
+    "footage_dir": "sample_files/footage",
+    "logs_dir": "logs"
+  },
+  "conflict_thresholds": {
+    "text_overflow_critical": 10,
+    "text_overflow_warning": 5,
+    "aspect_ratio_critical": 0.2,
+    "aspect_ratio_warning": 0.1,
+    "resolution_mismatch_warning": 100
+  },
+  "preview_defaults": {
+    "duration": 5,
+    "resolution": "half",
+    "fps": 15,
+    "format": "mp4",
+    "quality": "draft"
+  },
+  "advanced": {
+    "ml_confidence_threshold": 0.7,
+    "aerender_path": "/Applications/Adobe After Effects 2025/aerender",
+    "max_file_size_mb": 500,
+    "auto_font_substitution": false,
+    "enable_debug_logging": true,
+    "cleanup_temp_files": false
+  }
+}

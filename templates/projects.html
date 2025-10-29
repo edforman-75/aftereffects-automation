@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects - After Effects Automation</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/projects.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Projects</h1>
+                <p class="subtitle">Manage your automation projects</p>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="settings-link">← Back to Main</a>
+                <a href="/settings-page" class="settings-link">⚙️ Settings</a>
+            </div>
+        </header>
+
+        <!-- Error Message -->
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading" style="display: none;">Loading projects...</div>
+
+        <!-- Projects Header -->
+        <section class="card">
+            <div class="projects-header">
+                <h2>All Projects</h2>
+                <button id="new-project-btn" class="btn btn-primary">+ New Project</button>
+            </div>
+        </section>
+
+        <!-- Projects Grid -->
+        <section class="projects-grid" id="projects-grid">
+            <!-- Projects will be loaded here dynamically -->
+        </section>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="new-project-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Project</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="create-project-form">
+                <div class="form-group">
+                    <label for="project-name">Project Name *</label>
+                    <input type="text" id="project-name" name="name" required placeholder="e.g., Q1 2025 Campaign">
+                </div>
+                <div class="form-group">
+                    <label for="project-client">Client</label>
+                    <input type="text" id="project-client" name="client" placeholder="Client name">
+                </div>
+                <div class="form-group">
+                    <label for="project-description">Description</label>
+                    <textarea id="project-description" name="description" rows="3" placeholder="Project description..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/projects.js"></script>
+</body>
+</html>

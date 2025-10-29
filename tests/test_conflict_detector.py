@@ -1,71 +1,71 @@
 """
-Test conflict detector functionality.
-
-Verifies detection of text overflow, size mismatches, and dimension conflicts.
+Test conflict detector functionality with configurable thresholds.
 """
 
 import sys
 from pathlib import Path
 
-# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.phase1.psd_parser import parse_psd
 from modules.phase2.aepx_parser import parse_aepx
 from modules.phase3.content_matcher import match_content_to_slots
 from modules.phase3.conflict_detector import detect_conflicts
+from modules.phase3.conflict_config import DEFAULT_CONFLICT_CONFIG
 
 
 def test_conflict_detector():
-    """Test that conflict detector identifies potential issues."""
+    """Test conflict detector with default and custom configurations."""
     
     print("=" * 70)
-    print("CONFLICT DETECTOR TEST")
+    print("CONFLICT DETECTOR TEST (with Configuration)")
     print("=" * 70)
     
     # Load data
     print("\n📄 Loading files...")
-    psd_data = parse_psd('sample_files/test-photoshop-doc.psd')
-    aepx_data = parse_aepx('sample_files/test-after-effects-project.aepx')
-    mappings = match_content_to_slots(psd_data, aepx_data)
+    psd = parse_psd('sample_files/test-photoshop-doc.psd')
+    aepx = parse_aepx('sample_files/test-after-effects-project.aepx')
+    mappings = match_content_to_slots(psd, aepx)
     
-    print(f"   ✓ Loaded PSD: {psd_data['filename']}")
-    print(f"   ✓ Loaded AEPX: {aepx_data['filename']}")
+    print(f"   ✓ Loaded {psd['filename']}")
+    print(f"   ✓ Loaded {aepx['filename']}")
     print(f"   ✓ Created {len(mappings['mappings'])} mappings")
     
-    # Run conflict detector
-    print("\n🔍 Running conflict detector...")
-    result = detect_conflicts(psd_data, aepx_data, mappings)
+    # Test with default config
+    print("\n🔍 Test 1: Default Configuration")
+    result1 = detect_conflicts(psd, aepx, mappings)
     
-    print(f"\n   Found {result['summary']['total_conflicts']} potential conflicts:")
-    print(f"   - Critical: {result['summary']['critical']}")
-    print(f"   - Warnings: {result['summary']['warnings']}")
-    print(f"   - Info: {result['summary']['info']}")
+    print(f"   Found {result1['summary']['total']} conflicts")
+    print(f"   - Critical: {result1['summary']['critical']}")
+    print(f"   - Warning: {result1['summary']['warning']}")
+    print(f"   - Info: {result1['summary']['info']}")
+    
+    # Test with strict config
+    print("\n🔍 Test 2: Strict Configuration")
+    strict_config = DEFAULT_CONFLICT_CONFIG.copy()
+    strict_config['text_length_warning'] = 20  # Very strict
+    strict_config['aspect_ratio_tolerance'] = 0.1  # Very strict
+    
+    result2 = detect_conflicts(psd, aepx, mappings, strict_config)
+    
+    print(f"   Found {result2['summary']['total']} conflicts")
+    print(f"   - Critical: {result2['summary']['critical']}")
+    print(f"   - Warning: {result2['summary']['warning']}")
+    print(f"   - Info: {result2['summary']['info']}")
     
     # Display conflicts
     print("\n" + "=" * 70)
-    print("DETECTED CONFLICTS")
+    print("DETECTED CONFLICTS (Default Config)")
     print("=" * 70)
     
-    if not result['conflicts']:
-        print("\n✅ No conflicts detected! All mappings look good.")
-    else:
-        for i, conflict in enumerate(result['conflicts'], 1):
-            severity_icons = {
-                'critical': '🔴',
-                'warning': '⚠️',
-                'info': 'ℹ️'
-            }
-            
-            icon = severity_icons.get(conflict['severity'], '•')
-            
-            print(f"\n{i}. {icon} {conflict['severity'].upper()}: {conflict['type']}")
-            
-            if 'psd_layer' in conflict['mapping']:
-                print(f"   Mapping: {conflict['mapping']['psd_layer']} → {conflict['mapping']['aepx_placeholder']}")
-            
-            print(f"   Issue: {conflict['issue']}")
-            print(f"   Suggestion: {conflict['suggestion']}")
+    for i, conflict in enumerate(result1['conflicts'], 1):
+        severity_icons = {'critical': '🔴', 'warning': '⚠️', 'info': 'ℹ️'}
+        icon = severity_icons[conflict['severity']]
+        
+        print(f"\n{i}. {icon} {conflict['id']}: {conflict['type']}")
+        print(f"   Severity: {conflict['severity']}")
+        print(f"   Issue: {conflict['issue']}")
+        print(f"   Auto-fixable: {conflict['auto_fixable']}")
     
     # Verification
     print("\n" + "=" * 70)
@@ -74,33 +74,31 @@ def test_conflict_detector():
     
     checks = []
     
-    # Check that we have a summary
-    checks.append(('summary' in result, "Has summary"))
-    checks.append(('total_conflicts' in result['summary'], "Summary has total_conflicts"))
-    checks.append(('critical' in result['summary'], "Summary has critical count"))
-    checks.append(('warnings' in result['summary'], "Summary has warnings count"))
-    checks.append(('info' in result['summary'], "Summary has info count"))
+    # Structure checks
+    checks.append(('summary' in result1, "Has summary"))
+    checks.append(('conflicts' in result1, "Has conflicts list"))
+    checks.append(('total' in result1['summary'], "Summary has total"))
+    checks.append(('critical' in result1['summary'], "Summary has critical"))
+    checks.append(('warning' in result1['summary'], "Summary has warning"))
+    checks.append(('info' in result1['summary'], "Summary has info"))
     
-    # Check conflicts structure
-    checks.append(('conflicts' in result, "Has conflicts list"))
-    checks.append((isinstance(result['conflicts'], list), "Conflicts is a list"))
+    # Conflict structure
+    if result1['conflicts']:
+        first = result1['conflicts'][0]
+        checks.append(('id' in first, "Conflict has ID"))
+        checks.append(('type' in first, "Conflict has type"))
+        checks.append(('severity' in first, "Conflict has severity"))
+        checks.append(('issue' in first, "Conflict has issue"))
+        checks.append(('suggestion' in first, "Conflict has suggestion"))
+        checks.append(('auto_fixable' in first, "Conflict has auto_fixable flag"))
     
-    # Check for dimension mismatch (PSD is 1200x1500, template is 1920x1080)
-    dimension_conflicts = [c for c in result['conflicts'] if c['type'] == 'dimension_mismatch']
-    checks.append((len(dimension_conflicts) > 0, "Detected dimension mismatch (PSD 1200x1500 vs template 1920x1080)"))
+    # Check that strict config found more conflicts
+    checks.append((result2['summary']['total'] >= result1['summary']['total'],
+                  "Strict config finds >= conflicts than default"))
     
-    # Check conflict structure
-    if result['conflicts']:
-        first_conflict = result['conflicts'][0]
-        checks.append(('type' in first_conflict, "Conflict has type"))
-        checks.append(('severity' in first_conflict, "Conflict has severity"))
-        checks.append(('issue' in first_conflict, "Conflict has issue"))
-        checks.append(('suggestion' in first_conflict, "Conflict has suggestion"))
-    
-    # Verify severity levels are valid
-    valid_severities = {'critical', 'warning', 'info'}
-    all_valid = all(c['severity'] in valid_severities for c in result['conflicts'])
-    checks.append((all_valid, "All severities are valid (critical/warning/info)"))
+    # Check dimension mismatch detected
+    dim_conflicts = [c for c in result1['conflicts'] if c['type'] == 'DIMENSION_INFO']
+    checks.append((len(dim_conflicts) > 0, "Detected dimension mismatch"))
     
     # Print results
     passed = 0
@@ -110,11 +108,10 @@ def test_conflict_detector():
         if check:
             passed += 1
     
-    print("\n" + "=" * 70)
+    print(f"\n{'=' * 70}")
     print(f"RESULTS: {passed}/{len(checks)} checks passed")
-    print("=" * 70)
+    print(f"{'=' * 70}")
     
-    # Assert success
     assert passed >= len(checks) * 0.85, f"Too many checks failed: {passed}/{len(checks)}"
     
     print("\n🎉 Conflict detector test PASSED!")
