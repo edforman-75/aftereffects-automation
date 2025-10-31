@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Dashboard - After Effects Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>🏭 Production Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="showUploadModal()">
+                        <span class="icon">📤</span> Upload Batch
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshDashboard()">
+                        <span class="icon">🔄</span> Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Overview Statistics -->
+        <section class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="total-jobs">0</div>
+                    <div class="stat-label">Total Jobs</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="in-progress-jobs">0</div>
+                    <div class="stat-label">In Progress</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="completed-jobs">0</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="failed-jobs">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters and Search -->
+        <section class="controls">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search by Job ID, Client, or Project..." onkeyup="filterJobs()">
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-stage="all" onclick="filterByStage('all')">All Stages</button>
+                <button class="filter-btn" data-stage="0" onclick="filterByStage(0)">Stage 0</button>
+                <button class="filter-btn" data-stage="1" onclick="filterByStage(1)">Stage 1</button>
+                <button class="filter-btn" data-stage="2" onclick="filterByStage(2)">Stage 2</button>
+                <button class="filter-btn" data-stage="3" onclick="filterByStage(3)">Stage 3</button>
+                <button class="filter-btn" data-stage="4" onclick="filterByStage(4)">Stage 4</button>
+            </div>
+            <div class="priority-filters">
+                <button class="priority-btn active" data-priority="all" onclick="filterByPriority('all')">All</button>
+                <button class="priority-btn" data-priority="high" onclick="filterByPriority('high')">🔴 High</button>
+                <button class="priority-btn" data-priority="medium" onclick="filterByPriority('medium')">🟡 Medium</button>
+                <button class="priority-btn" data-priority="low" onclick="filterByPriority('low')">🟢 Low</button>
+            </div>
+        </section>
+
+        <!-- Stage Pipeline View -->
+        <section class="pipeline-view">
+            <div class="pipeline-header">
+                <h2>Pipeline Stages</h2>
+                <div class="pipeline-legend">
+                    <span class="legend-item"><span class="dot pending"></span> Pending</span>
+                    <span class="legend-item"><span class="dot processing"></span> Processing</span>
+                    <span class="legend-item"><span class="dot awaiting"></span> Awaiting Review</span>
+                    <span class="legend-item"><span class="dot completed"></span> Completed</span>
+                </div>
+            </div>
+
+            <div class="pipeline-stages">
+                <!-- Stage 0: Validation -->
+                <div class="stage-column" data-stage="0">
+                    <div class="stage-header">
+                        <h3>Stage 0: Validation</h3>
+                        <span class="stage-count" id="stage-0-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-0-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 1: Ingestion -->
+                <div class="stage-column" data-stage="1">
+                    <div class="stage-header">
+                        <h3>Stage 1: Ingestion</h3>
+                        <span class="stage-count" id="stage-1-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-1-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 2: Matching -->
+                <div class="stage-column" data-stage="2">
+                    <div class="stage-header">
+                        <h3>Stage 2: Matching</h3>
+                        <span class="stage-count" id="stage-2-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-2-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 3: Preview -->
+                <div class="stage-column" data-stage="3">
+                    <div class="stage-header">
+                        <h3>Stage 3: Preview</h3>
+                        <span class="stage-count" id="stage-3-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-3-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 4: Validation -->
+                <div class="stage-column" data-stage="4">
+                    <div class="stage-header">
+                        <h3>Stage 4: Deploy</h3>
+                        <span class="stage-count" id="stage-4-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-4-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Batches -->
+        <section class="recent-batches">
+            <h2>Recent Batches</h2>
+            <div class="batches-list" id="batches-list">
+                <!-- Batches will be inserted here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upload Batch CSV</h2>
+                <button class="close-btn" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="csv-file">Select CSV File:</label>
+                        <input type="file" id="csv-file" name="csv_file" accept=".csv" required>
+                        <div class="file-info">
+                            <small>Format: job_id, psd_path, aepx_path, output_name, client_name, project_name, priority, notes</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-id">Your User ID:</label>
+                        <input type="text" id="user-id" name="user_id" placeholder="e.g., john_doe" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Upload & Validate</button>
+                    </div>
+                </form>
+                <div id="upload-progress" class="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Uploading...</div>
+                </div>
+                <div id="upload-result" class="upload-result" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Details Modal -->
+    <div id="job-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="job-modal-title">Job Details</h2>
+                <button class="close-btn" onclick="closeJobModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="job-details-content">
+                    <!-- Job details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

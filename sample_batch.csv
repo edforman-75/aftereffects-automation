@@ -1,0 +1,3 @@
+job_id,psd_path,aepx_path,output_name,client_name,project_name,priority,notes
+TEST001,/Users/edf/aftereffects-automation/test_collected/footage/test-photoshop-doc.psd,/Users/edf/aftereffects-automation/test_collected/test-correct.aepx,test001_final.aep,TestClient,TestProject,high,First test job
+TEST002,/Users/edf/aftereffects-automation/uploads/1761876744_b9d7b27c_psd_test-photoshop-doc.psd,/Users/edf/aftereffects-automation/uploads/1761876744_b9d7b27c_aepx_test-after-effects-project_copy.aepx,test002_final.aep,TestClient,TestProject,medium,Second test job

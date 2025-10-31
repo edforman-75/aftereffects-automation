@@ -30,11 +30,20 @@ from modules.phase5.preview_generator import generate_preview, check_aerender_av
 from config.container import container
 from services.font_service import FontService
 
+# Production batch processing services
+from services.batch_validator import BatchValidator
+from services.job_service import JobService
+from services.warning_service import WarningService
+from services.log_service import LogService
+from services.stage1_processor import Stage1Processor
+from database import init_database, db_session
+
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
 OUTPUT_FOLDER = Path('output')
 FONTS_FOLDER = Path('fonts')
-PREVIEWS_FOLDER = Path('previews')
+PREVIEWS_FOLDER = Path(__file__).parent / 'previews'  # Absolute path for Photoshop
+RENDERS_FOLDER = Path(__file__).parent / 'renders'  # Final renders
 ALLOWED_PSD_EXTENSIONS = {'psd'}
 ALLOWED_AEPX_EXTENSIONS = {'aepx', 'aep'}
 ALLOWED_FONT_EXTENSIONS = {'ttf', 'otf', 'woff', 'woff2'}
@@ -42,6 +51,12 @@ MAX_PSD_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_AEPX_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_FONT_SIZE = 5 * 1024 * 1024  # 5MB
 CLEANUP_AGE = timedelta(hours=1)
+
+# Preview & Sign-off Workflow Settings
+VALIDATE_BEFORE_PREVIEW = os.getenv('VALIDATE_BEFORE_PREVIEW', 'true').lower() == 'true'
+REQUIRE_SIGNOFF_FOR_RENDER = os.getenv('REQUIRE_SIGNOFF_FOR_RENDER', 'true').lower() == 'true'
+AE_PREVIEW_PRESET = os.getenv('AE_PREVIEW_PRESET', 'draft_720p_4mbps')
+AE_FINAL_PRESET = os.getenv('AE_FINAL_PRESET', 'hq_1080p_15mbps')
 
 # Create Flask app
 app = Flask(__name__)
@@ -98,6 +113,7 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 FONTS_FOLDER.mkdir(exist_ok=True)
 PREVIEWS_FOLDER.mkdir(exist_ok=True)
+RENDERS_FOLDER.mkdir(exist_ok=True)
 
 # Configuration management
 CONFIG_FILE = Path('config.json')
@@ -165,6 +181,45 @@ config = load_config()
 sessions = {}
 
 
+# Job State Management Utilities
+import hashlib
+
+
+def sha256_file(file_path: str) -> str:
+    """Calculate SHA-256 hash of a file"""
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(8192), b''):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except Exception as e:
+        container.main_logger.error(f"Error hashing file {file_path}: {e}")
+        return None
+
+
+def log_state_transition(session_id: str, from_state: str, to_state: str, user: str = 'system'):
+    """Log job state transitions for audit trail"""
+    container.main_logger.info(
+        f"[STATE_TRANSITION] session_id={session_id} from={from_state} to={to_state} by={user} at={datetime.now().isoformat()}"
+    )
+
+
+def update_job_state(session_id: str, new_state: str, user: str = 'system'):
+    """Update job state with logging"""
+    if session_id in sessions:
+        old_state = sessions[session_id].get('state', 'UNKNOWN')
+        sessions[session_id]['state'] = new_state
+        log_state_transition(session_id, old_state, new_state, user)
+        return True
+    return False
+
+
+def now_iso() -> str:
+    """Get current timestamp in ISO format"""
+    return datetime.now().isoformat()
+
+
 def allowed_file(filename, allowed_extensions):
     """Check if file extension is allowed."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -220,7 +275,9 @@ def check_font_availability(required_fonts):
 def index():
     """Serve the main page."""
     cleanup_old_files()
-    return render_template('index.html')
+    return render_template('index.html',
+                          VALIDATE_BEFORE_PREVIEW=VALIDATE_BEFORE_PREVIEW,
+                          REQUIRE_SIGNOFF_FOR_RENDER=REQUIRE_SIGNOFF_FOR_RENDER)
 
 
 @app.route('/projects-page')
@@ -233,6 +290,12 @@ def projects_page():
 def project_dashboard(project_id):
     """Serve the project dashboard page."""
     return render_template('project-dashboard.html', project_id=project_id)
+
+
+@app.route('/dashboard')
+def production_dashboard():
+    """Serve the production batch processing dashboard."""
+    return render_template('production_dashboard.html')
 
 
 @app.route('/upload', methods=['POST'])
@@ -302,17 +365,77 @@ def upload_files():
 
         psd_data = psd_result.get_data()
 
+        # Extract all PSD layers as individual PNG files (HEADLESS - no Photoshop UI!)
+        container.main_logger.info("Extracting PSD layers (headless mode)...")
+        exports_dir = UPLOAD_FOLDER / "exports" / session_id
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        from services.psd_layer_exporter import PSDLayerExporter
+        layer_exporter = PSDLayerExporter(container.main_logger)
+        export_result = layer_exporter.extract_all_layers(
+            str(psd_path),
+            str(exports_dir),
+            generate_thumbnails=True
+        )
+
+        # Extract from result
+        exported_layers = export_result.get('layers', {})
+        flattened_preview = export_result.get('flattened_preview')
+        psd_dimensions = export_result.get('dimensions', {})
+        fonts_from_layers = export_result.get('fonts', [])
+
+        # Format fonts for frontend
+        fonts_installed = [f for f in fonts_from_layers if f.get('is_installed')]
+        fonts_missing = [f for f in fonts_from_layers if not f.get('is_installed')]
+
+        # Log summary
+        summary = layer_exporter.get_export_summary(exported_layers)
+        container.main_logger.info(summary)
+
         # Parse AEPX/AEP
         aepx_ext = Path(aepx_file.filename).suffix.lower()
         if aepx_ext == '.aep':
-            # For AEP files, use default composition name
-            container.main_logger.info("AEP file detected, using default structure")
-            aepx_data = {
-                'filename': aepx_file.filename,
-                'composition_name': 'Main Comp',
-                'compositions': [{'name': 'Main Comp', 'width': 1920, 'height': 1080}],
-                'placeholders': []
-            }
+            # For AEP files, convert to AEPX format automatically
+            container.main_logger.info("AEP file detected, converting to AEPX format...")
+
+            # Generate output path for AEPX
+            aepx_output_path = str(aepx_path.with_suffix('.aepx'))
+
+            # Convert using AEP converter
+            conversion_result = container.aep_converter.convert_aep_to_aepx_applescript(
+                str(aepx_path),
+                aepx_output_path
+            )
+
+            if not conversion_result.get('success'):
+                error_msg = conversion_result.get('error', 'Unknown conversion error')
+                container.main_logger.error(f"AEP conversion failed: {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'message': f'AEP conversion failed: {error_msg}. Please ensure After Effects is installed and the AEP file is valid.'
+                }), 400
+
+            # Update path to use converted AEPX
+            aepx_path = Path(conversion_result['aepx_path'])
+            container.main_logger.info(f"✅ AEP converted successfully: {aepx_path}")
+
+            # Continue with normal AEPX parsing flow
+            aepx_valid = container.aepx_service.validate_aepx_file(str(aepx_path), max_size_mb=10)
+            if not aepx_valid.is_success():
+                return jsonify({
+                    'success': False,
+                    'message': f'Converted AEPX validation failed: {aepx_valid.get_error()}'
+                }), 400
+
+            # Parse the converted AEPX
+            aepx_result = container.aepx_service.parse_aepx(str(aepx_path))
+            if not aepx_result.is_success():
+                return jsonify({
+                    'success': False,
+                    'message': f'Converted AEPX parsing failed: {aepx_result.get_error()}'
+                }), 400
+
+            aepx_data = aepx_result.get_data()
         else:
             # Validate AEPX using service
             aepx_valid = container.aepx_service.validate_aepx_file(str(aepx_path), max_size_mb=10)
@@ -331,6 +454,30 @@ def upload_files():
                 }), 400
 
             aepx_data = aepx_result.get_data()
+
+        # Comprehensive headless AEPX processing
+        container.main_logger.info("Analyzing AEPX structure (headless mode)...")
+        from services.aepx_processor import AEPXProcessor
+        aepx_processor = AEPXProcessor(container.main_logger)
+
+        # Process AEPX comprehensively (no AE UI will appear)
+        aepx_analysis = aepx_processor.process_aepx(
+            str(aepx_path),
+            session_id,
+            generate_thumbnails=False  # Keep headless for now
+        )
+
+        # Extract analysis results
+        aepx_placeholders = aepx_analysis.get('placeholders', [])
+        aepx_layer_categories = aepx_analysis.get('layer_categories', {})
+        aepx_missing_footage = aepx_analysis.get('missing_footage', [])
+        aepx_all_layers = aepx_analysis.get('layers', [])
+
+        container.main_logger.info(f"✅ AEPX analysis complete:")
+        container.main_logger.info(f"   - Compositions: {len(aepx_analysis.get('compositions', []))}")
+        container.main_logger.info(f"   - Total layers: {len(aepx_all_layers)}")
+        container.main_logger.info(f"   - Placeholders detected: {len(aepx_placeholders)}")
+        container.main_logger.info(f"   - Missing footage: {len(aepx_missing_footage)}")
 
         # Extract fonts using service
         # IMPORTANT: If parse_method is 'photoshop', the psd_data already has correct text info
@@ -366,7 +513,7 @@ def upload_files():
             font_status = {}
             font_summary = {"total": 0, "installed": 0, "missing": 0, "percentage": 0, "all_installed": False}
 
-        # Store in session
+        # Store in session with job state
         sessions[session_id] = {
             'psd_path': str(psd_path),
             'aepx_path': str(aepx_path),
@@ -376,7 +523,27 @@ def upload_files():
             'font_status': font_status,
             'font_summary': font_summary,
             'fonts': fonts,
-            'created_at': datetime.now()
+            'created_at': datetime.now(),
+            # Layer exports (headless processing results)
+            'exported_layers': exported_layers,
+            'exports_dir': str(exports_dir),
+            'flattened_preview': flattened_preview,
+            'psd_dimensions': psd_dimensions,
+            'fonts_from_layers': fonts_from_layers,  # Fonts detected during layer export
+            'fonts_installed': fonts_installed,
+            'fonts_missing': fonts_missing,
+            # AEPX headless analysis results
+            'aepx_analysis': aepx_analysis,
+            'aepx_placeholders': aepx_placeholders,
+            'aepx_layer_categories': aepx_layer_categories,
+            'aepx_missing_footage': aepx_missing_footage,
+            'aepx_all_layers': aepx_all_layers,
+            # Job state fields
+            'state': 'DRAFT',
+            'preview': None,  # {psd_png, ae_mp4, generated_at}
+            'validation': None,  # {ok, score, grade, report, generated_at}
+            'signoff': None,  # {approved, approved_by, notes, timestamp, hashes}
+            'final_render': None  # {output_mp4, status, started_at, finished_at, error}
         }
 
         container.main_logger.info(
@@ -398,7 +565,19 @@ def upload_files():
                 'aepx': {
                     'filename': aepx_data['filename'],
                     'composition': aepx_data['composition_name'],
-                    'placeholders': len(aepx_data['placeholders'])
+                    'placeholders': len(aepx_data['placeholders']),
+                    # Comprehensive headless analysis
+                    'analysis': {
+                        'total_layers': len(aepx_all_layers),
+                        'placeholders_detected': len(aepx_placeholders),
+                        'missing_footage': len(aepx_missing_footage),
+                        'text_layers': len(aepx_layer_categories.get('text_layers', [])),
+                        'image_layers': len(aepx_layer_categories.get('image_layers', [])),
+                        'solid_layers': len(aepx_layer_categories.get('solid_layers', [])),
+                        'shape_layers': len(aepx_layer_categories.get('shape_layers', [])),
+                        'adjustment_layers': len(aepx_layer_categories.get('adjustment_layers', [])),
+                        'unknown_layers': len(aepx_layer_categories.get('unknown_layers', []))
+                    }
                 },
                 'fonts': {
                     'total': font_check['summary']['total'],
@@ -408,7 +587,12 @@ def upload_files():
                     'missing': font_summary['missing'],
                     'percentage': font_summary['percentage'],
                     'all_installed': font_summary['all_installed'],
-                    'status': font_status
+                    'status': font_status,
+                    # From layer export (headless detection)
+                    'from_layers': {
+                        'installed': [{'family': f['family'], 'style': f['style'], 'layer': f.get('layer_name')} for f in fonts_installed],
+                        'missing': [{'family': f['family'], 'style': f['style'], 'postscript_name': f.get('postscript_name'), 'layer': f.get('layer_name')} for f in fonts_missing]
+                    }
                 }
             }
         })
@@ -1845,6 +2029,104 @@ def download_file(filename):
         }), 500
 
 
+@app.route('/generate-thumbnails', methods=['POST'])
+def generate_thumbnails():
+    """Generate thumbnail previews for PSD layers."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+
+        if not session_id or session_id not in sessions:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid session'
+            }), 400
+
+        session = sessions[session_id]
+        psd_path = session.get('psd_path')
+
+        if not psd_path:
+            return jsonify({
+                'success': False,
+                'message': 'No PSD file in session'
+            }), 400
+
+        # Import ThumbnailService
+        from services.thumbnail_service import ThumbnailService
+
+        # Generate thumbnails
+        thumbnail_service = ThumbnailService(container.main_logger)
+        # Convert to absolute path for Photoshop
+        psd_path = os.path.abspath(psd_path)
+        
+        result = thumbnail_service.generate_layer_thumbnails(
+            psd_path,
+            str(PREVIEWS_FOLDER),
+            session_id
+        )
+
+        if not result.is_success():
+            return jsonify({
+                'success': False,
+                'message': f'Thumbnail generation failed: {result.get_error()}'
+            }), 500
+
+        thumbnails = result.get_data()
+
+        # Store in session
+        session['thumbnails'] = thumbnails
+
+        return jsonify({
+            'success': True,
+            'message': f'Generated {len(thumbnails)} thumbnails',
+            'thumbnails': {
+                name: f'/thumbnail/{session_id}/{filename}'
+                for name, filename in thumbnails.items()
+            }
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Thumbnail generation failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/thumbnail/<session_id>/<filename>')
+def serve_thumbnail(session_id, filename):
+    """Serve a layer thumbnail image."""
+    try:
+        # Build thumbnail path
+        thumb_folder = PREVIEWS_FOLDER / "thumbnails" / session_id
+        thumb_path = thumb_folder / filename
+
+        if not thumb_path.exists():
+            # Return placeholder SVG
+            placeholder_svg = '''<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#f0f0f0"/>
+  <text x="100" y="100" font-family="Arial" font-size="14"
+        fill="#999" text-anchor="middle" dominant-baseline="middle">
+    No Preview
+  </text>
+</svg>'''
+            return placeholder_svg, 200, {'Content-Type': 'image/svg+xml'}
+
+        return send_file(thumb_path, mimetype='image/png')
+
+    except Exception as e:
+        container.main_logger.error(f"Error serving thumbnail: {e}")
+        # Return error SVG
+        error_svg = '''<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#ffe0e0"/>
+  <text x="100" y="100" font-family="Arial" font-size="14"
+        fill="#cc0000" text-anchor="middle" dominant-baseline="middle">
+    Error
+  </text>
+</svg>'''
+        return error_svg, 200, {'Content-Type': 'image/svg+xml'}
+
+
 @app.route('/apply-resolution', methods=['POST'])
 def apply_resolution():
     """Apply a conflict resolution."""
@@ -1916,6 +2198,462 @@ def apply_resolution():
             'success': False,
             'message': str(e)
         }), 500
+
+
+@app.route('/validate-plainly', methods=['POST'])
+def validate_plainly():
+    """Validate AEP/AEPX file for Plainly compatibility."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+
+        if not session_id or session_id not in sessions:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid session'
+            }), 400
+
+        session = sessions[session_id]
+        aepx_path = session.get('aepx_path')
+        aepx_data = session.get('aepx_data')
+
+        if not aepx_path:
+            return jsonify({
+                'success': False,
+                'message': 'No AEPX file in session'
+            }), 400
+
+        # Validate using Plainly validator service
+        validation_result = container.plainly_validator_service.validate_aep(
+            str(aepx_path),
+            aepx_data
+        )
+
+        if not validation_result.is_success():
+            return jsonify({
+                'success': False,
+                'message': f'Validation failed: {validation_result.get_error()}'
+            }), 500
+
+        report = validation_result.get_data()
+
+        # Store validation report in session
+        session['validation_report'] = {
+            'score': report.score,
+            'grade': report.grade,
+            'is_valid': report.is_valid,
+            'plainly_ready': report.plainly_ready,
+            'summary': report.summary,
+            'issues': [
+                {
+                    'severity': issue.severity.value,
+                    'category': issue.category,
+                    'message': issue.message,
+                    'details': issue.details,
+                    'fix_suggestion': issue.fix_suggestion,
+                    'layer_name': issue.layer_name,
+                    'composition_name': issue.composition_name
+                }
+                for issue in report.issues
+            ]
+        }
+
+        # Get summary for UI display
+        summary = container.plainly_validator_service.get_validation_summary(report)
+
+        # Update session validation state for preview/sign-off workflow
+        session['validation'] = {
+            'ok': report.is_valid and report.plainly_ready,
+            'score': report.score,
+            'grade': report.grade,
+            'report': session['validation_report'],
+            'generated_at': now_iso()
+        }
+
+        # Update state based on result
+        new_state = 'VALIDATED_OK' if (report.is_valid and report.plainly_ready) else 'VALIDATED_FAIL'
+        update_job_state(session_id, new_state)
+
+        return jsonify({
+            'success': True,
+            'message': 'Validation completed',
+            'validation': {
+                'score': report.score,
+                'grade': report.grade,
+                'is_valid': report.is_valid,
+                'plainly_ready': report.plainly_ready,
+                'summary': report.summary,
+                'status_message': summary['status_message'],
+                'issues': session['validation_report']['issues']
+            }
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Plainly validation failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/apply-plainly-fixes', methods=['POST'])
+def apply_plainly_fixes():
+    """Automatically fix Plainly compatibility issues."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+
+        if not session_id or session_id not in sessions:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid session'
+            }), 400
+
+        session = sessions[session_id]
+        aepx_data = session.get('aepx_data')
+        validation_report = session.get('validation_report')
+
+        if not aepx_data:
+            return jsonify({
+                'success': False,
+                'message': 'No AEPX data in session'
+            }), 400
+
+        if not validation_report:
+            return jsonify({
+                'success': False,
+                'message': 'No validation report found. Run validation first.'
+            }), 400
+
+        # Reconstruct ValidationReport object from stored data
+        from modules.phase6.plainly_validator import ValidationReport, ValidationIssue, ValidationSeverity
+
+        issues = [
+            ValidationIssue(
+                severity=ValidationSeverity(issue['severity']),
+                category=issue['category'],
+                message=issue['message'],
+                details=issue['details'],
+                fix_suggestion=issue['fix_suggestion'],
+                layer_name=issue.get('layer_name'),
+                composition_name=issue.get('composition_name')
+            )
+            for issue in validation_report['issues']
+        ]
+
+        report = ValidationReport(
+            is_valid=validation_report['is_valid'],
+            score=validation_report['score'],
+            grade=validation_report['grade'],
+            issues=issues,
+            summary=validation_report['summary'],
+            plainly_ready=validation_report['plainly_ready']
+        )
+
+        # Apply auto-fixes
+        fix_result = container.plainly_validator_service.apply_auto_fixes(aepx_data, report)
+
+        if not fix_result.is_success():
+            return jsonify({
+                'success': False,
+                'message': f'Auto-fix failed: {fix_result.get_error()}'
+            }), 500
+
+        fix_data = fix_result.get_data()
+
+        # Update session with modified aepx_data
+        session['aepx_data'] = aepx_data
+
+        # Re-validate to get updated report
+        aepx_path = session.get('aepx_path')
+        new_validation_result = container.plainly_validator_service.validate_aep(
+            str(aepx_path),
+            aepx_data
+        )
+
+        if new_validation_result.is_success():
+            new_report = new_validation_result.get_data()
+
+            # Update session with new report
+            session['validation_report'] = {
+                'score': new_report.score,
+                'grade': new_report.grade,
+                'is_valid': new_report.is_valid,
+                'plainly_ready': new_report.plainly_ready,
+                'summary': new_report.summary,
+                'issues': [
+                    {
+                        'severity': issue.severity.value,
+                        'category': issue.category,
+                        'message': issue.message,
+                        'details': issue.details,
+                        'fix_suggestion': issue.fix_suggestion,
+                        'layer_name': issue.layer_name,
+                        'composition_name': issue.composition_name
+                    }
+                    for issue in new_report.issues
+                ]
+            }
+
+            summary = container.plainly_validator_service.get_validation_summary(new_report)
+
+            return jsonify({
+                'success': True,
+                'message': f'Successfully fixed {fix_data.fixed_count} issues!',
+                'fix_result': {
+                    'fixed_count': fix_data.fixed_count,
+                    'changes': fix_data.changes,
+                    'errors': fix_data.errors
+                },
+                'validation': {
+                    'score': new_report.score,
+                    'grade': new_report.grade,
+                    'is_valid': new_report.is_valid,
+                    'plainly_ready': new_report.plainly_ready,
+                    'summary': new_report.summary,
+                    'status_message': summary['status_message'],
+                    'issues': session['validation_report']['issues']
+                }
+            })
+        else:
+            # Return fix results even if re-validation fails
+            return jsonify({
+                'success': True,
+                'message': f'Fixed {fix_data.fixed_count} issues (re-validation failed)',
+                'fix_result': {
+                    'fixed_count': fix_data.fixed_count,
+                    'changes': fix_data.changes,
+                    'errors': fix_data.errors
+                }
+            })
+
+    except Exception as e:
+        container.main_logger.error(f"Auto-fix failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+# ============================================================================
+# PREVIEW & SIGN-OFF WORKFLOW
+# ============================================================================
+
+@app.route('/previews/generate', methods=['POST'])
+def previews_generate():
+    """Generate PSD PNG and AE MP4 preview renders"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+
+        if not session_id or session_id not in sessions:
+            return jsonify({'success': False, 'error': 'Invalid session'}), 400
+
+        session = sessions[session_id]
+
+        # Guard: Check validation requirement (Mode A)
+        if VALIDATE_BEFORE_PREVIEW:
+            validation = session.get('validation')
+            if not (validation and validation.get('ok')):
+                return jsonify({
+                    'success': False,
+                    'error': 'Validation must pass before generating previews (Mode A).'
+                }), 400
+
+        psd_path = session.get('psd_path')
+        aepx_path = session.get('aepx_path')
+
+        # Create preview directory for this session
+        preview_dir = PREVIEWS_FOLDER / "session_previews" / session_id
+        preview_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate PSD PNG (left preview)
+        psd_png_path = str(preview_dir / f"psd_preview_{session_id}.png")
+        from services.thumbnail_service import ThumbnailService
+        thumb_service = ThumbnailService(container.main_logger)
+
+        # Render full PSD as flattened PNG
+        psd_result = thumb_service.render_psd_to_png(psd_path, psd_png_path)
+
+        if not psd_result.is_success():
+            return jsonify({
+                'success': False,
+                'error': f'PSD preview generation failed: {psd_result.get_error()}'
+            }), 500
+
+        # Generate AE MP4 (right preview)
+        ae_mp4_path = str(preview_dir / f"ae_preview_{session_id}.mp4")
+
+        # Get mappings from session
+        mappings_data = {
+            'mappings': session.get('mappings', []),
+            'composition_name': session.get('aepx_data', {}).get('compositions', [{}])[0].get('name', 'Main Comp')
+        }
+
+        # Build image_sources from exported layers
+        exported_layers = session.get('exported_layers', {})
+        image_sources = {}
+        for layer_name, layer_info in exported_layers.items():
+            if layer_info.get('type') == 'pixel':
+                # Add both by layer name and safe filename
+                image_sources[layer_name] = layer_info['path']
+                # Also add lowercase version for case-insensitive matching
+                image_sources[layer_name.lower()] = layer_info['path']
+
+        # Use existing preview generator with draft settings
+        from modules.phase5.preview_generator import generate_preview
+        preview_result = generate_preview(
+            aepx_path=aepx_path,
+            mappings=mappings_data,
+            output_path=ae_mp4_path,
+            options={
+                'resolution': 'half',  # Draft quality
+                'duration': 5.0,
+                'format': 'mp4',
+                'quality': 'draft',
+                'fps': 15,
+                'image_sources': image_sources,  # Pass exported layer images
+                'psd_path': psd_path  # Pass PSD path for reference
+            }
+        )
+
+        if not preview_result['success']:
+            return jsonify({
+                'success': False,
+                'error': f'AE preview generation failed: {preview_result.get("message")}'
+            }), 500
+
+        # Store preview info in session
+        session['preview'] = {
+            'psd_png': psd_png_path,
+            'ae_mp4': ae_mp4_path,
+            'generated_at': now_iso()
+        }
+
+        # Update state
+        update_job_state(session_id, 'PREVIEW_READY')
+
+        return jsonify({
+            'success': True,
+            'message': 'Previews generated successfully',
+            'state': session['state'],
+            'preview': {
+                'psd_png_url': f'/preview-file/{session_id}/psd',
+                'ae_mp4_url': f'/preview-file/{session_id}/ae',
+                'generated_at': session['preview']['generated_at']
+            }
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Preview generation error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/preview-file/<session_id>/<file_type>')
+def serve_preview_file(session_id, file_type):
+    """Serve preview files (psd or ae)"""
+    try:
+        if session_id not in sessions:
+            return "Session not found", 404
+
+        preview = sessions[session_id].get('preview')
+        if not preview:
+            return "Preview not generated", 404
+
+        if file_type == 'psd':
+            file_path = preview.get('psd_png')
+        elif file_type == 'ae':
+            file_path = preview.get('ae_mp4')
+        else:
+            return "Invalid file type", 400
+
+        if not file_path or not Path(file_path).exists():
+            return "File not found", 404
+
+        return send_file(file_path)
+
+    except Exception as e:
+        container.main_logger.error(f"Error serving preview: {e}")
+        return "Error serving file", 500
+
+
+@app.route('/signoff/approve', methods=['POST'])
+def signoff_approve():
+    """Approve previews and kick off final render"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        notes = data.get('notes', '')
+        user = data.get('user', 'user')  # Could integrate with auth system
+
+        if not session_id or session_id not in sessions:
+            return jsonify({'success': False, 'error': 'Invalid session'}), 400
+
+        session = sessions[session_id]
+
+        # Guards
+        if REQUIRE_SIGNOFF_FOR_RENDER:
+            # Check validation (Mode A only)
+            if VALIDATE_BEFORE_PREVIEW:
+                validation = session.get('validation')
+                if not (validation and validation.get('ok')):
+                    return jsonify({
+                        'success': False,
+                        'error': 'Validation must pass before sign-off (Mode A).'
+                    }), 400
+
+            # Check previews exist
+            preview = session.get('preview')
+            if not (preview and preview.get('psd_png') and preview.get('ae_mp4')):
+                return jsonify({
+                    'success': False,
+                    'error': 'Generate previews before sign-off.'
+                }), 400
+
+        # Calculate hashes for audit trail
+        preview = session.get('preview', {})
+        hashes = {
+            'psd_png_sha256': sha256_file(preview.get('psd_png')) if preview.get('psd_png') else None,
+            'ae_mp4_sha256': sha256_file(preview.get('ae_mp4')) if preview.get('ae_mp4') else None
+        }
+
+        # Store signoff
+        session['signoff'] = {
+            'approved': True,
+            'approved_by': user,
+            'notes': notes,
+            'timestamp': now_iso(),
+            'hashes': hashes
+        }
+
+        # Update state
+        update_job_state(session_id, 'APPROVED', user=user)
+
+        # Kick off final render (async)
+        # For now, just prepare - actual render would be background task
+        session['final_render'] = {
+            'status': 'queued',
+            'queued_at': now_iso()
+        }
+
+        container.main_logger.info(
+            f"Sign-off approved for session {session_id} by {user}. Final render queued."
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Approved! Final render queued.',
+            'state': session['state'],
+            'signoff': {
+                'approved': True,
+                'approved_by': user,
+                'timestamp': session['signoff']['timestamp']
+            }
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Sign-off error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================================================
@@ -2899,6 +3637,452 @@ def get_performance_summary():
     except Exception as e:
         container.main_logger.error(f"Error getting performance summary: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/thumbnail-test')
+def thumbnail_test():
+    """Simple test page for viewing thumbnails"""
+    return render_template('thumbnail_test.html')
+
+
+# ============================================================================
+# PRODUCTION BATCH PROCESSING API
+# ============================================================================
+
+# Initialize database on startup
+init_database()
+
+# Initialize services
+batch_validator = BatchValidator(container.main_logger)
+job_service = JobService(container.main_logger)
+warning_service = WarningService(container.main_logger)
+log_service = LogService(container.main_logger)
+stage1_processor = Stage1Processor(container.main_logger)
+
+# Import and initialize Stage Transition Manager
+from services.stage_transition_manager import StageTransitionManager
+transition_manager = StageTransitionManager(container.main_logger)
+
+
+@app.route('/api/batch/upload', methods=['POST'])
+def upload_batch_csv():
+    """
+    Upload and validate CSV batch file.
+
+    Returns validated batch ready for processing.
+    """
+    try:
+        # Check if file is present
+        if 'csv_file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No CSV file provided'
+            }), 400
+
+        csv_file = request.files['csv_file']
+        user_id = request.form.get('user_id', 'anonymous')
+
+        if csv_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+
+        # Save CSV file
+        csv_filename = secure_filename(csv_file.filename)
+        csv_dir = Path('data/batches')
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = csv_dir / f"{int(time.time())}_{csv_filename}"
+        csv_file.save(str(csv_path))
+
+        container.main_logger.info(f"CSV uploaded: {csv_path} by {user_id}")
+
+        # Validate CSV
+        validation_result = batch_validator.validate_csv(str(csv_path))
+
+        if not validation_result['valid']:
+            return jsonify({
+                'success': False,
+                'validation': validation_result,
+                'message': f"Batch validation failed: {validation_result['invalid_jobs']} invalid jobs"
+            }), 400
+
+        # Create batch and jobs in database
+        batch_id = job_service.create_batch_from_csv(
+            batch_id=validation_result['batch_id'],
+            csv_path=str(csv_path),
+            csv_filename=csv_filename,
+            jobs=validation_result['jobs'],
+            validation_result=validation_result,
+            user_id=user_id
+        )
+
+        container.main_logger.info(f"Batch created: {batch_id} with {validation_result['valid_jobs']} jobs")
+
+        return jsonify({
+            'success': True,
+            'batch_id': batch_id,
+            'validation': validation_result,
+            'message': f"Batch created successfully with {validation_result['valid_jobs']} jobs"
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Batch upload failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/batch/<batch_id>/start-processing', methods=['POST'])
+def start_batch_processing(batch_id: str):
+    """
+    Start Stage 1 automated processing for a batch.
+
+    Processes all jobs in the batch through automated ingestion.
+    """
+    try:
+        max_jobs = request.json.get('max_jobs', 100) if request.json else 100
+
+        container.main_logger.info(f"Starting Stage 1 processing for batch {batch_id}")
+
+        # Process batch
+        result = stage1_processor.process_batch(batch_id, max_jobs=max_jobs)
+
+        # Update batch status
+        if result['succeeded'] > 0:
+            job_service.update_batch_status(batch_id, 'processing')
+
+        return jsonify({
+            'success': True,
+            'batch_id': batch_id,
+            'result': result,
+            'message': f"Processed {result['processed']} jobs: {result['succeeded']} succeeded, {result['failed']} failed"
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Batch processing failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/batch/<batch_id>', methods=['GET'])
+def get_batch_status(batch_id: str):
+    """Get batch status and job summary."""
+    try:
+        batch = job_service.get_batch(batch_id)
+
+        if not batch:
+            return jsonify({
+                'success': False,
+                'error': f'Batch not found: {batch_id}'
+            }), 404
+
+        # Get job counts by stage
+        jobs = job_service.get_batch_jobs(batch_id)
+        stage_counts = {}
+        status_counts = {}
+
+        for job in jobs:
+            stage_counts[job.current_stage] = stage_counts.get(job.current_stage, 0) + 1
+            status_counts[job.status] = status_counts.get(job.status, 0) + 1
+
+        return jsonify({
+            'success': True,
+            'batch': {
+                'batch_id': batch.batch_id,
+                'status': batch.status,
+                'csv_filename': batch.csv_filename,
+                'total_jobs': batch.total_jobs,
+                'valid_jobs': batch.valid_jobs,
+                'invalid_jobs': batch.invalid_jobs,
+                'uploaded_at': batch.uploaded_at.isoformat() if batch.uploaded_at else None,
+                'validated_at': batch.validated_at.isoformat() if batch.validated_at else None,
+                'completed_at': batch.completed_at.isoformat() if batch.completed_at else None,
+                'uploaded_by': batch.uploaded_by
+            },
+            'stage_counts': stage_counts,
+            'status_counts': status_counts
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting batch status: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/job/<job_id>', methods=['GET'])
+def get_job_status(job_id: str):
+    """Get detailed job status."""
+    try:
+        job = job_service.get_job(job_id)
+
+        if not job:
+            return jsonify({
+                'success': False,
+                'error': f'Job not found: {job_id}'
+            }), 404
+
+        # Get warnings
+        warnings = warning_service.get_job_warnings(job_id, resolved=False)
+        warning_count = len(warnings)
+        critical_count = warning_service.get_critical_warning_count(job_id)
+
+        # Get recent logs
+        logs = log_service.get_job_logs(job_id, limit=20)
+
+        return jsonify({
+            'success': True,
+            'job': {
+                'job_id': job.job_id,
+                'batch_id': job.batch_id,
+                'current_stage': job.current_stage,
+                'status': job.status,
+                'priority': job.priority,
+                'client_name': job.client_name,
+                'project_name': job.project_name,
+                'psd_path': job.psd_path,
+                'aepx_path': job.aepx_path,
+                'output_name': job.output_name,
+                'final_aep_path': job.final_aep_path,
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+                'updated_at': job.updated_at.isoformat() if job.updated_at else None,
+                'stage0_completed_at': job.stage0_completed_at.isoformat() if job.stage0_completed_at else None,
+                'stage1_completed_at': job.stage1_completed_at.isoformat() if job.stage1_completed_at else None,
+                'stage2_completed_at': job.stage2_completed_at.isoformat() if job.stage2_completed_at else None,
+                'stage3_completed_at': job.stage3_completed_at.isoformat() if job.stage3_completed_at else None,
+                'stage4_completed_at': job.stage4_completed_at.isoformat() if job.stage4_completed_at else None
+            },
+            'warnings': {
+                'total': warning_count,
+                'critical': critical_count,
+                'list': [{
+                    'warning_id': w.warning_id,
+                    'type': w.warning_type,
+                    'severity': w.severity,
+                    'message': w.message,
+                    'stage': w.stage,
+                    'created_at': w.created_at.isoformat() if w.created_at else None
+                } for w in warnings]
+            },
+            'recent_logs': [{
+                'log_id': log.log_id,
+                'stage': log.stage,
+                'action': log.action,
+                'message': log.message,
+                'user_id': log.user_id,
+                'created_at': log.created_at.isoformat() if log.created_at else None
+            } for log in logs]
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting job status: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/dashboard/stats', methods=['GET'])
+def get_dashboard_stats():
+    """Get production dashboard statistics."""
+    try:
+        # Get summary stats
+        summary = job_service.get_summary_stats()
+
+        # Get counts by stage
+        stage_counts = job_service.get_job_counts_by_stage()
+
+        # Get counts by status
+        status_counts = job_service.get_job_counts_by_status()
+
+        # Get recent batches
+        recent_batches = job_service.get_all_batches(limit=10)
+
+        return jsonify({
+            'success': True,
+            'summary': summary,
+            'stage_counts': stage_counts,
+            'status_counts': status_counts,
+            'recent_batches': [{
+                'batch_id': b.batch_id,
+                'status': b.status,
+                'total_jobs': b.total_jobs,
+                'valid_jobs': b.valid_jobs,
+                'uploaded_at': b.uploaded_at.isoformat() if b.uploaded_at else None,
+                'uploaded_by': b.uploaded_by
+            } for b in recent_batches]
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting dashboard stats: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/jobs/stage/<int:stage>', methods=['GET'])
+def get_jobs_by_stage(stage: int):
+    """Get all jobs in a specific stage."""
+    try:
+        batch_id = request.args.get('batch_id')
+        limit = int(request.args.get('limit', 100))
+
+        jobs = job_service.get_jobs_for_stage(stage, batch_id=batch_id, limit=limit)
+
+        return jsonify({
+            'success': True,
+            'stage': stage,
+            'count': len(jobs),
+            'jobs': [{
+                'job_id': job.job_id,
+                'batch_id': job.batch_id,
+                'status': job.status,
+                'priority': job.priority,
+                'client_name': job.client_name,
+                'project_name': job.project_name,
+                'output_name': job.output_name,
+                'created_at': job.created_at.isoformat() if job.created_at else None
+            } for job in jobs]
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting jobs by stage: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ============================================================================
+# STAGE TRANSITION & APPROVAL ENDPOINTS
+# ============================================================================
+
+@app.route('/api/job/<job_id>/approve-stage2', methods=['POST'])
+def approve_stage2_matching(job_id: str):
+    """
+    Approve Stage 2 layer matching and transition to Stage 3.
+
+    Expects JSON body with approved matches:
+    {
+        "user_id": "john_doe",
+        "matches": [
+            {"psd_layer": "...", "aepx_placeholder": "..."},
+            ...
+        ]
+    }
+    """
+    try:
+        data = request.json
+        user_id = data.get('user_id', 'anonymous')
+        matches = data.get('matches', [])
+
+        container.main_logger.info(f"Job {job_id}: Stage 2 approval by {user_id}")
+
+        # Transition from Stage 2 to Stage 3 with approved matches
+        result = transition_manager.transition_stage(
+            job_id=job_id,
+            from_stage=2,
+            to_stage=3,
+            user_id=user_id,
+            approved_data={'matches': matches}
+        )
+
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Stage 2 approved - generating preview in background',
+                'job_id': job_id,
+                'status': result['status']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Transition failed')
+            }), 400
+
+    except Exception as e:
+        container.main_logger.error(f"Error approving Stage 2: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/job/<job_id>/approve-stage3', methods=['POST'])
+def approve_stage3_preview(job_id: str):
+    """
+    Approve Stage 3 preview and transition to Stage 4.
+
+    Expects JSON body:
+    {
+        "user_id": "john_doe",
+        "approval_notes": "Looks good!"
+    }
+    """
+    try:
+        data = request.json
+        user_id = data.get('user_id', 'anonymous')
+        notes = data.get('approval_notes', '')
+
+        container.main_logger.info(f"Job {job_id}: Stage 3 approval by {user_id}")
+
+        # Transition from Stage 3 to Stage 4
+        result = transition_manager.transition_stage(
+            job_id=job_id,
+            from_stage=3,
+            to_stage=4,
+            user_id=user_id,
+            approved_data={'approval_notes': notes}
+        )
+
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Stage 3 approved - validating and deploying in background',
+                'job_id': job_id,
+                'status': result['status']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Transition failed')
+            }), 400
+
+    except Exception as e:
+        container.main_logger.error(f"Error approving Stage 3: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/job/<job_id>/preprocessing-status/<int:stage>', methods=['GET'])
+def get_preprocessing_status(job_id: str, stage: int):
+    """
+    Get the pre-processing status for a job at a specific stage.
+
+    Returns whether background pre-processing is active or completed.
+    """
+    try:
+        status = transition_manager.get_preprocessing_status(job_id, stage)
+
+        return jsonify({
+            'success': True,
+            **status
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting preprocessing status: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # ============================================================================
