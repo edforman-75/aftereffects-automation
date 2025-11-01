@@ -16,6 +16,7 @@ class DirectorySettings:
     """File location settings"""
     upload_dir: str = 'uploads'
     preview_dir: str = 'previews'
+    renders_dir: str = 'renders'  # Final render output location
     output_dir: str = 'output'
     fonts_dir: str = 'fonts'
     footage_dir: str = 'sample_files/footage'  # Working footage location from successful test
@@ -43,6 +44,26 @@ class PreviewDefaults:
 
 
 @dataclass
+class FileValidationSettings:
+    """File upload validation settings"""
+    allowed_psd_extensions: set = None
+    allowed_aepx_extensions: set = None
+    allowed_font_extensions: set = None
+    max_psd_size_mb: int = 50
+    max_aepx_size_mb: int = 10
+    max_font_size_mb: int = 5
+
+    def __post_init__(self):
+        """Initialize sets with default values if not provided"""
+        if self.allowed_psd_extensions is None:
+            self.allowed_psd_extensions = {'psd'}
+        if self.allowed_aepx_extensions is None:
+            self.allowed_aepx_extensions = {'aepx', 'aep'}
+        if self.allowed_font_extensions is None:
+            self.allowed_font_extensions = {'ttf', 'otf', 'woff', 'woff2'}
+
+
+@dataclass
 class AdvancedSettings:
     """Advanced configuration"""
     ml_confidence_threshold: float = 0.7  # Our matching worked great at this level
@@ -51,6 +72,7 @@ class AdvancedSettings:
     auto_font_substitution: bool = False
     enable_debug_logging: bool = True  # Enable logs for production debugging
     cleanup_temp_files: bool = False  # Keep temp files for inspection
+    cleanup_age_hours: int = 1  # Age in hours before cleaning up temp files
 
 
 @dataclass
@@ -68,12 +90,14 @@ class Settings:
     directories: DirectorySettings
     conflict_thresholds: ConflictThresholds
     preview_defaults: PreviewDefaults
+    file_validation: FileValidationSettings
     advanced: AdvancedSettings
 
     def __init__(self):
         self.directories = DirectorySettings()
         self.conflict_thresholds = ConflictThresholds()
         self.preview_defaults = PreviewDefaults()
+        self.file_validation = FileValidationSettings()
         self.advanced = AdvancedSettings()
 
     @classmethod
@@ -163,6 +187,18 @@ class Settings:
             defaults.update(data['preview_defaults'])
             instance.preview_defaults = PreviewDefaults(**defaults)
 
+        # Load file validation settings - preserve existing, use defaults for new fields
+        if 'file_validation' in data:
+            fv_data = data['file_validation']
+            # Convert lists back to sets for extension fields
+            if 'allowed_psd_extensions' in fv_data and isinstance(fv_data['allowed_psd_extensions'], list):
+                fv_data['allowed_psd_extensions'] = set(fv_data['allowed_psd_extensions'])
+            if 'allowed_aepx_extensions' in fv_data and isinstance(fv_data['allowed_aepx_extensions'], list):
+                fv_data['allowed_aepx_extensions'] = set(fv_data['allowed_aepx_extensions'])
+            if 'allowed_font_extensions' in fv_data and isinstance(fv_data['allowed_font_extensions'], list):
+                fv_data['allowed_font_extensions'] = set(fv_data['allowed_font_extensions'])
+            instance.file_validation = FileValidationSettings(**fv_data)
+
         # Load advanced settings - preserve existing, use defaults for new fields
         if 'advanced' in data:
             adv_data = data['advanced']
@@ -190,10 +226,17 @@ class Settings:
         Args:
             config_path: Path to JSON configuration file
         """
+        # Convert file_validation dataclass, converting sets to lists for JSON
+        fv_dict = asdict(self.file_validation)
+        fv_dict['allowed_psd_extensions'] = list(fv_dict['allowed_psd_extensions'])
+        fv_dict['allowed_aepx_extensions'] = list(fv_dict['allowed_aepx_extensions'])
+        fv_dict['allowed_font_extensions'] = list(fv_dict['allowed_font_extensions'])
+
         data = {
             'directories': asdict(self.directories),
             'conflict_thresholds': asdict(self.conflict_thresholds),
             'preview_defaults': asdict(self.preview_defaults),
+            'file_validation': fv_dict,
             'advanced': asdict(self.advanced)
         }
 
@@ -216,7 +259,7 @@ class Settings:
         """
 
         # Validate directories exist or can be created
-        for dir_name in ['upload_dir', 'preview_dir', 'output_dir', 'fonts_dir', 'footage_dir', 'logs_dir']:
+        for dir_name in ['upload_dir', 'preview_dir', 'renders_dir', 'output_dir', 'fonts_dir', 'footage_dir', 'logs_dir']:
             dir_path = getattr(self.directories, dir_name)
             try:
                 os.makedirs(dir_path, exist_ok=True)
@@ -282,10 +325,17 @@ class Settings:
         Returns:
             Dictionary representation of all settings
         """
+        # Convert file_validation, converting sets to lists for JSON compatibility
+        fv_dict = asdict(self.file_validation)
+        fv_dict['allowed_psd_extensions'] = list(fv_dict['allowed_psd_extensions'])
+        fv_dict['allowed_aepx_extensions'] = list(fv_dict['allowed_aepx_extensions'])
+        fv_dict['allowed_font_extensions'] = list(fv_dict['allowed_font_extensions'])
+
         return {
             'directories': asdict(self.directories),
             'conflict_thresholds': asdict(self.conflict_thresholds),
             'preview_defaults': asdict(self.preview_defaults),
+            'file_validation': fv_dict,
             'advanced': asdict(self.advanced)
         }
 

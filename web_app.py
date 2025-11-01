@@ -46,21 +46,24 @@ from routes.job_routes import job_bp
 from routes.stage2_routes import stage2_bp
 from routes.stage4_routes import stage4_bp
 
-# Configuration
-UPLOAD_FOLDER = Path('uploads')
-OUTPUT_FOLDER = Path('output')
-FONTS_FOLDER = Path('fonts')
-PREVIEWS_FOLDER = Path(__file__).parent / 'previews'  # Absolute path for Photoshop
-RENDERS_FOLDER = Path(__file__).parent / 'renders'  # Final renders
-ALLOWED_PSD_EXTENSIONS = {'psd'}
-ALLOWED_AEPX_EXTENSIONS = {'aepx', 'aep'}
-ALLOWED_FONT_EXTENSIONS = {'ttf', 'otf', 'woff', 'woff2'}
-MAX_PSD_SIZE = 50 * 1024 * 1024  # 50MB
-MAX_AEPX_SIZE = 10 * 1024 * 1024  # 10MB
-MAX_FONT_SIZE = 5 * 1024 * 1024  # 5MB
-CLEANUP_AGE = timedelta(hours=1)
+# Configuration (Phase 3 refactoring - centralized in config/settings.py)
+from config.settings import settings
 
-# Preview & Sign-off Workflow Settings
+# Convenience Path references from settings
+UPLOAD_FOLDER = Path(settings.directories.upload_dir)
+OUTPUT_FOLDER = Path(settings.directories.output_dir)
+FONTS_FOLDER = Path(settings.directories.fonts_dir)
+PREVIEWS_FOLDER = Path(__file__).parent / settings.directories.preview_dir
+RENDERS_FOLDER = Path(__file__).parent / settings.directories.renders_dir
+ALLOWED_PSD_EXTENSIONS = settings.file_validation.allowed_psd_extensions
+ALLOWED_AEPX_EXTENSIONS = settings.file_validation.allowed_aepx_extensions
+ALLOWED_FONT_EXTENSIONS = settings.file_validation.allowed_font_extensions
+MAX_PSD_SIZE = settings.file_validation.max_psd_size_mb * 1024 * 1024
+MAX_AEPX_SIZE = settings.file_validation.max_aepx_size_mb * 1024 * 1024
+MAX_FONT_SIZE = settings.file_validation.max_font_size_mb * 1024 * 1024
+CLEANUP_AGE = timedelta(hours=settings.advanced.cleanup_age_hours)
+
+# Preview & Sign-off Workflow Settings (TODO: Move to settings.py)
 VALIDATE_BEFORE_PREVIEW = os.getenv('VALIDATE_BEFORE_PREVIEW', 'true').lower() == 'true'
 REQUIRE_SIGNOFF_FOR_RENDER = os.getenv('REQUIRE_SIGNOFF_FOR_RENDER', 'true').lower() == 'true'
 AE_PREVIEW_PRESET = os.getenv('AE_PREVIEW_PRESET', 'draft_720p_4mbps')
