@@ -42,6 +42,7 @@ from database.models import Job
 # Route blueprints (Phase 2 refactoring)
 from routes.core_routes import core_bp
 from routes.batch_routes import batch_bp
+from routes.job_routes import job_bp
 
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
@@ -3694,6 +3695,7 @@ match_validator = MatchValidationService(container.main_logger)
 # Register blueprints (Phase 2 refactoring)
 app.register_blueprint(core_bp)
 app.register_blueprint(batch_bp)
+app.register_blueprint(job_bp)
 
 
 @app.route('/api/batch/upload', methods=['POST'])
