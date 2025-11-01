@@ -5,7 +5,8 @@ Handles Stage 4 validation review - user can return to matching or override issu
 """
 
 from datetime import datetime
-from flask import Blueprint, request, jsonify, render_template
+from typing import Tuple, Any
+from flask import Blueprint, request, jsonify, render_template, Response
 
 # Import services from web_app (they're initialized there)
 from config.container import container
@@ -18,8 +19,16 @@ stage4_bp = Blueprint('stage4', __name__)
 
 
 @stage4_bp.route('/validate/<job_id>')
-def validate_job_page(job_id: str):
-    """Display Stage 4 validation review page for a job."""
+def validate_job_page(job_id: str) -> str | Tuple[str, int]:
+    """
+    Display Stage 4 validation review page for a job.
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        Rendered HTML template or error message with status code
+    """
     try:
         container.main_logger.info(f"Loading validation page for job {job_id}")
         return render_template('stage3_validation.html', job_id=job_id)
@@ -29,11 +38,17 @@ def validate_job_page(job_id: str):
 
 
 @stage4_bp.route('/api/job/<job_id>/return-to-matching', methods=['POST'])
-def return_to_matching(job_id: str):
+def return_to_matching(job_id: str) -> Tuple[Response, int]:
     """
     Stage 4: User chose to return to Stage 2 to fix matches.
 
     Transitions job from Stage 4 (Validation Review) back to Stage 2 (Matching).
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        JSON response with success status and redirect URL, plus HTTP status code
     """
     try:
         data = request.json
@@ -88,11 +103,17 @@ def return_to_matching(job_id: str):
 
 
 @stage4_bp.route('/api/job/<job_id>/override-validation', methods=['POST'])
-def override_validation(job_id: str):
+def override_validation(job_id: str) -> Tuple[Response, int]:
     """
     Stage 4: User chose to override validation issues and proceed.
 
     Transitions job from Stage 4 (Validation Review) to Stage 5 (ExtendScript Generation).
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        JSON response with success status and message, plus HTTP status code
     """
     try:
         data = request.json

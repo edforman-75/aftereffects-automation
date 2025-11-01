@@ -5,7 +5,8 @@ Handles Stage 2 layer matching review and approval.
 """
 
 from datetime import datetime
-from flask import Blueprint, request, jsonify, render_template
+from typing import Tuple
+from flask import Blueprint, request, jsonify, render_template, Response
 
 # Import services from web_app (they're initialized there)
 from config.container import container
@@ -25,13 +26,21 @@ def get_services():
 
 
 @stage2_bp.route('/review-matching/<job_id>')
-def review_matching(job_id):
-    """Stage 2: Review layer matching interface."""
+def review_matching(job_id: str) -> str:
+    """
+    Stage 2: Review layer matching interface.
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        Rendered HTML template
+    """
     return render_template('stage2_review.html', job_id=job_id)
 
 
 @stage2_bp.route('/api/job/<job_id>/approve-stage2', methods=['POST'])
-def approve_stage2_matching(job_id: str):
+def approve_stage2_matching(job_id: str) -> Tuple[Response, int]:
     """
     Approve Stage 2 layer matching and run validation.
 
@@ -42,15 +51,21 @@ def approve_stage2_matching(job_id: str):
     - If critical issues: Move to Stage 4 (Validation Review) and return validation_url
     - If no critical issues: Skip Stage 4, move directly to Stage 5 (ExtendScript Generation)
 
-    Expects JSON body with approved matches:
-    {
-        "user_id": "john_doe",
-        "matches": [
-            {"psd_layer_id": "psd_LayerName", "ae_layer_id": "ae_Placeholder", "confidence": 0.95, "method": "auto"},
-            ...
-        ],
-        "next_action": "next_job" | "dashboard"  # Optional
-    }
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        JSON response with validation results and next steps, plus HTTP status code
+
+    Request JSON body:
+        {
+            "user_id": "john_doe",
+            "matches": [
+                {"psd_layer_id": "psd_LayerName", "ae_layer_id": "ae_Placeholder", "confidence": 0.95, "method": "auto"},
+                ...
+            ],
+            "next_action": "next_job" | "dashboard"  # Optional
+        }
     """
     try:
         match_validator = get_services()
