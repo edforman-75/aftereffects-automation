@@ -39,6 +39,10 @@ from services.stage1_processor import Stage1Processor
 from database import init_database, db_session
 from database.models import Job
 
+# Route blueprints (Phase 2 refactoring)
+from routes.core_routes import core_bp
+from routes.batch_routes import batch_bp
+
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
 OUTPUT_FOLDER = Path('output')
@@ -3686,6 +3690,10 @@ transition_manager = StageTransitionManager(container.main_logger)
 # Import and initialize Match Validation Service
 from services.match_validation_service import MatchValidationService
 match_validator = MatchValidationService(container.main_logger)
+
+# Register blueprints (Phase 2 refactoring)
+app.register_blueprint(core_bp)
+app.register_blueprint(batch_bp)
 
 
 @app.route('/api/batch/upload', methods=['POST'])
