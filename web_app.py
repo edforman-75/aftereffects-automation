@@ -66,11 +66,11 @@ MAX_AEPX_SIZE = settings.file_validation.max_aepx_size_mb * 1024 * 1024
 MAX_FONT_SIZE = settings.file_validation.max_font_size_mb * 1024 * 1024
 CLEANUP_AGE = timedelta(hours=settings.advanced.cleanup_age_hours)
 
-# Preview & Sign-off Workflow Settings (TODO: Move to settings.py)
-VALIDATE_BEFORE_PREVIEW = os.getenv('VALIDATE_BEFORE_PREVIEW', 'true').lower() == 'true'
-REQUIRE_SIGNOFF_FOR_RENDER = os.getenv('REQUIRE_SIGNOFF_FOR_RENDER', 'true').lower() == 'true'
-AE_PREVIEW_PRESET = os.getenv('AE_PREVIEW_PRESET', 'draft_720p_4mbps')
-AE_FINAL_PRESET = os.getenv('AE_FINAL_PRESET', 'hq_1080p_15mbps')
+# Preview & Sign-off Workflow Settings (from settings.py)
+VALIDATE_BEFORE_PREVIEW = settings.workflow.validate_before_preview
+REQUIRE_SIGNOFF_FOR_RENDER = settings.workflow.require_signoff_for_render
+AE_PREVIEW_PRESET = settings.workflow.ae_preview_preset
+AE_FINAL_PRESET = settings.workflow.ae_final_preset
 
 # Create Flask app
 app = Flask(__name__)

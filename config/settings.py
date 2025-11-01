@@ -76,6 +76,15 @@ class AdvancedSettings:
 
 
 @dataclass
+class WorkflowSettings:
+    """Preview and sign-off workflow settings"""
+    validate_before_preview: bool = True  # Run validation before generating preview
+    require_signoff_for_render: bool = True  # Require user sign-off before final render
+    ae_preview_preset: str = 'draft_720p_4mbps'  # After Effects preset for preview renders
+    ae_final_preset: str = 'hq_1080p_15mbps'  # After Effects preset for final renders
+
+
+@dataclass
 class Settings:
     """
     Application settings with validation and persistence.
@@ -92,6 +101,7 @@ class Settings:
     preview_defaults: PreviewDefaults
     file_validation: FileValidationSettings
     advanced: AdvancedSettings
+    workflow: WorkflowSettings
 
     def __init__(self):
         self.directories = DirectorySettings()
@@ -99,6 +109,7 @@ class Settings:
         self.preview_defaults = PreviewDefaults()
         self.file_validation = FileValidationSettings()
         self.advanced = AdvancedSettings()
+        self.workflow = WorkflowSettings()
 
     @classmethod
     def load(cls, config_path='config.json') -> 'Settings':
@@ -213,6 +224,12 @@ class Settings:
             defaults.update(adv_data)
             instance.advanced = AdvancedSettings(**defaults)
 
+        # Load workflow settings - preserve existing, use defaults for new fields
+        if 'workflow' in data:
+            defaults = asdict(instance.workflow)
+            defaults.update(data['workflow'])
+            instance.workflow = WorkflowSettings(**defaults)
+
         # Save if migration occurred to update file with new format
         if migrated:
             instance.save(config_path)
@@ -237,7 +254,8 @@ class Settings:
             'conflict_thresholds': asdict(self.conflict_thresholds),
             'preview_defaults': asdict(self.preview_defaults),
             'file_validation': fv_dict,
-            'advanced': asdict(self.advanced)
+            'advanced': asdict(self.advanced),
+            'workflow': asdict(self.workflow)
         }
 
         with open(config_path, 'w') as f:
@@ -336,7 +354,8 @@ class Settings:
             'conflict_thresholds': asdict(self.conflict_thresholds),
             'preview_defaults': asdict(self.preview_defaults),
             'file_validation': fv_dict,
-            'advanced': asdict(self.advanced)
+            'advanced': asdict(self.advanced),
+            'workflow': asdict(self.workflow)
         }
 
 
