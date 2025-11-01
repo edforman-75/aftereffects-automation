@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 3: Preview & Approval</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stage3_preview.css') }}">
+</head>
+<body>
+    <div class="preview-container">
+        <!-- Header -->
+        <header class="preview-header">
+            <div class="header-left">
+                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+                <h1>Stage 3: Preview & Approval</h1>
+            </div>
+            <div class="header-right">
+                <span class="job-id-display" id="job-id-display">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Job Info Bar -->
+        <div class="job-info-bar" id="job-info-bar">
+            <div class="info-item">
+                <span class="info-label">Client:</span>
+                <span class="info-value" id="client-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Project:</span>
+                <span class="info-value" id="project-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">PSD File:</span>
+                <span class="info-value" id="psd-filename">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">AEPX Template:</span>
+                <span class="info-value" id="aepx-filename">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Layer Matches:</span>
+                <span class="info-value" id="match-count">-</span>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions-panel">
+            <h3>Instructions</h3>
+            <p>Review the preview video comparing the original PSD design with the After Effects render. The video shows both versions side-by-side.</p>
+            <ul>
+                <li><strong>Left side</strong>: Original PSD design (flattened animation)</li>
+                <li><strong>Right side</strong>: After Effects render with your approved layer mappings</li>
+                <li>Use the video controls to play, pause, and scrub through the preview</li>
+                <li>Toggle between side-by-side and single view modes</li>
+                <li>Add approval notes if needed</li>
+                <li>Click <strong>Approve & Continue to Stage 4</strong> when satisfied, or <strong>Reject</strong> to send back to Stage 2</li>
+            </ul>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="preview-section">
+            <div class="preview-controls">
+                <h2>Preview Video</h2>
+                <div class="view-mode-toggle">
+                    <button class="toggle-btn active" data-mode="side-by-side" onclick="setViewMode('side-by-side')">
+                        Side-by-Side
+                    </button>
+                    <button class="toggle-btn" data-mode="psd-only" onclick="setViewMode('psd-only')">
+                        PSD Only
+                    </button>
+                    <button class="toggle-btn" data-mode="ae-only" onclick="setViewMode('ae-only')">
+                        AE Only
+                    </button>
+                </div>
+            </div>
+
+            <div class="video-player-container">
+                <div class="video-wrapper" id="video-wrapper">
+                    <!-- Video player will be inserted here -->
+                    <div class="video-placeholder">
+                        <div class="placeholder-content">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            <p>Preview video will appear here</p>
+                            <p class="placeholder-note">In production, this would show the rendered side-by-side comparison video</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Controls -->
+                <div class="custom-controls">
+                    <button class="control-btn" id="play-pause-btn" onclick="togglePlayPause()" disabled>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <input type="range" class="seek-bar" id="seek-bar" min="0" max="100" value="0" disabled>
+                    <span class="time-display" id="time-display">0:00 / 0:00</span>
+                    <button class="control-btn" id="fullscreen-btn" onclick="toggleFullscreen()" disabled>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Comparison Info -->
+            <div class="comparison-info">
+                <div class="info-card">
+                    <h4>Render Details</h4>
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="label">Duration:</span>
+                            <span class="value" id="video-duration">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Resolution:</span>
+                            <span class="value" id="video-resolution">1920x1080</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Frame Rate:</span>
+                            <span class="value" id="video-framerate">30 fps</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Render Time:</span>
+                            <span class="value" id="render-time">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approval Section -->
+        <div class="approval-section">
+            <h3>Approval Notes</h3>
+            <textarea
+                id="approval-notes"
+                class="approval-notes-input"
+                placeholder="Add any notes about this preview (optional)..."
+                rows="4"
+            ></textarea>
+
+            <div class="approval-checklist">
+                <h4>Quality Checklist (Optional)</h4>
+                <label class="checklist-item">
+                    <input type="checkbox" id="check-timing">
+                    <span>Timing and animation match original design</span>
+                </label>
+                <label class="checklist-item">
+                    <input type="checkbox" id="check-layers">
+                    <span>All layers are correctly positioned</span>
+                </label>
+                <label class="checklist-item">
+                    <input type="checkbox" id="check-effects">
+                    <span>Effects and transitions look correct</span>
+                </label>
+                <label class="checklist-item">
+                    <input type="checkbox" id="check-quality">
+                    <span>Overall quality meets requirements</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">
+                    Cancel
+                </button>
+                <button class="btn btn-danger" id="reject-button" onclick="rejectPreview()">
+                    Reject & Send Back to Stage 2
+                </button>
+            </div>
+            <div class="action-right">
+                <button class="btn btn-primary" id="approve-button" onclick="approvePreview()">
+                    Approve & Continue to Stage 4
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Confirmation Modal -->
+    <div class="modal" id="reject-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reject Preview?</h3>
+                <span class="modal-close" onclick="closeRejectModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reject this preview and send it back to Stage 2?</p>
+                <p>Please provide a reason for rejection:</p>
+                <textarea
+                    id="rejection-reason"
+                    class="rejection-reason-input"
+                    placeholder="Explain what needs to be fixed..."
+                    rows="4"
+                ></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRejectModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmReject()">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading preview data...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/stage3_preview.js') }}"></script>
+</body>
+</html>

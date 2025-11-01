@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 3: Validation & Quality Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stage3_validation.css') }}">
+</head>
+<body>
+    <div class="validation-container">
+        <!-- Header -->
+        <header class="validation-header">
+            <div class="header-left">
+                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+                <h1>🔍 Stage 3: Validation & Quality Control</h1>
+            </div>
+            <div class="header-right">
+                <span class="job-id-display" id="job-id-display">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Job Info Bar -->
+        <div class="job-info-bar" id="job-info-bar">
+            <div class="info-item">
+                <span class="info-label">Client:</span>
+                <span class="info-value" id="client-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Project:</span>
+                <span class="info-value" id="project-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Validated:</span>
+                <span class="info-value" id="validated-at">-</span>
+            </div>
+        </div>
+
+        <!-- Validation Summary -->
+        <div class="summary-panel">
+            <h2>📊 Validation Summary</h2>
+            <div class="summary-stats">
+                <div class="stat-card stat-success">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="valid-count">0</div>
+                        <div class="stat-label">Valid Matches</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-warning">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="warning-count">0</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-critical">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="critical-count">0</div>
+                        <div class="stat-label">Critical Issues</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Issues Section -->
+        <div class="issues-section critical-section" id="critical-section" style="display: none;">
+            <div class="section-header">
+                <h2>❌ Critical Issues (Must Fix or Override)</h2>
+                <p class="section-description">
+                    These issues may cause significant problems in the output. 
+                    Please review and either fix the matches or provide a reason to override.
+                </p>
+            </div>
+            <div class="issues-list" id="critical-issues-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Warnings Section -->
+        <div class="issues-section warning-section" id="warning-section" style="display: none;">
+            <div class="section-header">
+                <h2>⚠️ Warnings (Review Recommended)</h2>
+                <p class="section-description">
+                    These issues should be reviewed but won't prevent processing.
+                </p>
+            </div>
+            <div class="issues-list" id="warning-issues-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="issues-section info-section" id="info-section" style="display: none;">
+            <div class="section-header">
+                <h2>ℹ️ Information (No Action Required)</h2>
+                <p class="section-description">
+                    Informational notes about your matches.
+                </p>
+            </div>
+            <div class="issues-list" id="info-issues-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-secondary" onclick="backToMatching()">
+                    ← Back to Stage 2
+                </button>
+            </div>
+            <div class="action-right" id="action-buttons">
+                <!-- Populated by JavaScript based on validation status -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Override Modal -->
+    <div class="modal" id="override-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Override Critical Issues</h3>
+                <span class="modal-close" onclick="closeOverrideModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="warning-text">
+                    ⚠️ You are about to override <strong id="override-issue-count">0</strong> critical issue(s).
+                    This may cause problems in the output.
+                </p>
+                <label for="override-reason">Reason for override (required):</label>
+                <textarea id="override-reason" class="form-textarea" rows="4" 
+                          placeholder="Explain why you're proceeding despite these issues..."></textarea>
+                <p class="help-text">
+                    This decision will be logged for review.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeOverrideModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmOverride()">Override & Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading validation results...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='js/stage3_validation.js') }}"></script>
+</body>
+</html>

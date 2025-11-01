@@ -55,7 +55,7 @@ async function loadStatistics() {
 async function loadAllStages() {
     allJobs = [];
 
-    for (let stage = 0; stage <= 4; stage++) {
+    for (let stage = 0; stage <= 6; stage++) {
         await loadStage(stage);
     }
 
@@ -85,7 +85,7 @@ async function loadStage(stage) {
 // Render jobs in their respective stages
 function renderJobs(jobs) {
     // Clear all stage containers
-    for (let stage = 0; stage <= 4; stage++) {
+    for (let stage = 0; stage <= 6; stage++) {
         const container = document.getElementById(`stage-${stage}-jobs`);
         container.innerHTML = '';
     }
@@ -101,7 +101,7 @@ function renderJobs(jobs) {
     });
 
     // Render each stage
-    for (let stage = 0; stage <= 4; stage++) {
+    for (let stage = 0; stage <= 6; stage++) {
         const container = document.getElementById(`stage-${stage}-jobs`);
         const stageJobs = jobsByStage[stage] || [];
 
@@ -144,7 +144,9 @@ function createJobCard(job) {
     if (job.status === 'awaiting_review') {
         actionButton = '<button class="job-action-btn review" onclick="event.stopPropagation(); launchStageAction(\'' + job.job_id + '\', 2)">Review Matching</button>';
     } else if (job.status === 'awaiting_approval') {
-        actionButton = '<button class="job-action-btn approve" onclick="event.stopPropagation(); launchStageAction(\'' + job.job_id + '\', 3)">Approve Preview</button>';
+        actionButton = '<button class="job-action-btn approve" onclick="event.stopPropagation(); launchStageAction(\'' + job.job_id + '\', 4)">Review Validation</button>';
+    } else if (job.status === 'awaiting_download') {
+        actionButton = '<button class="job-action-btn download" onclick="event.stopPropagation(); downloadResult(\'' + job.job_id + '\')">Download Script</button>';
     } else if (job.status === 'completed') {
         actionButton = '<button class="job-action-btn download" onclick="event.stopPropagation(); downloadResult(\'' + job.job_id + '\')">Download</button>';
     }
@@ -178,6 +180,7 @@ function formatStatus(status) {
         'awaiting_approval': 'Awaiting Approval',
         'ready_for_validation': 'Ready for Validation',
         'validation_failed': 'Validation Failed',
+        'awaiting_download': 'Ready for Download',
         'completed': 'Completed',
         'failed': 'Failed'
     };
@@ -511,9 +514,9 @@ function launchStageAction(jobId, stage) {
     }
 }
 
-// Download result
+// Download result / View Stage 4
 function downloadResult(jobId) {
-    window.location.href = `/download-result/${jobId}`;
+    window.location.href = `/validate-deploy/${jobId}`;
 }
 
 // Refresh dashboard

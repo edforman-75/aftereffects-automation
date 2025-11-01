@@ -1,0 +1,2 @@
+job_id,psd_path,aepx_path,output_name,client_name,project_name,priority,notes
+E2E_TEST_1761967145,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,e2e_test_output.aep,E2ETest,AutomatedTest,high,Full pipeline test

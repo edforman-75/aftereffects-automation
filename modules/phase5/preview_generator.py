@@ -163,7 +163,68 @@ def generate_preview(aepx_path: str, mappings: Dict[str, Any],
 
         # Determine composition name
         comp_name = mappings.get('composition_name', 'Main Comp')
-        print(f"Step 4: Using composition: '{comp_name}'\n")
+        print(f"Step 4: Using composition: '{comp_name}'")
+
+        # Verify composition exists in both original and temp project
+        print(f"\nStep 4.5: Verifying composition exists...")
+        print(f"{'='*70}")
+
+        # Check original file first
+        try:
+            print(f"  Checking original AEPX file: {aepx_path}")
+            original_comps = extract_composition_names(aepx_path)
+            print(f"  Original file compositions: {original_comps}")
+        except Exception as e:
+            print(f"  ⚠️  Error extracting from original: {e}")
+            original_comps = []
+
+        # Check temp file
+        try:
+            print(f"  Checking temp project file: {temp_project}")
+            available_comps = extract_composition_names(temp_project)
+            print(f"  Temp file compositions: {available_comps}")
+        except Exception as e:
+            print(f"  ⚠️  Error extracting from temp: {e}")
+            available_comps = []
+
+        # If temp file has no compositions but original does, this is a problem
+        if not available_comps and original_comps:
+            print(f"\n❌ ERROR: Temp project has no compositions!")
+            print(f"  Original file had: {original_comps}")
+            print(f"  This suggests the temp file copy may be corrupted")
+            print(f"  Trying to use original file instead...")
+            temp_project = aepx_path
+            available_comps = original_comps
+
+        # Use original comps as fallback if temp has none
+        if not available_comps:
+            available_comps = original_comps
+
+        if comp_name not in available_comps:
+            print(f"\n⚠️  WARNING: Composition '{comp_name}' not found!")
+            print(f"  Requested: '{comp_name}'")
+            print(f"  Available: {available_comps}")
+
+            if available_comps:
+                # Try to find a close match (case-insensitive)
+                comp_lower = comp_name.lower()
+                for available in available_comps:
+                    if available.lower() == comp_lower:
+                        print(f"  ✓ Found case-insensitive match: '{available}'")
+                        comp_name = available
+                        break
+                else:
+                    # No match found, use first available
+                    print(f"  ℹ️  Using first available composition: '{available_comps[0]}'")
+                    comp_name = available_comps[0]
+            else:
+                print(f"  ❌ No compositions found in project - rendering will likely fail")
+        else:
+            print(f"  ✓ Composition '{comp_name}' verified")
+
+        print(f"{'='*70}")
+        print(f"✅ Composition verification complete: '{comp_name}'")
+        print(f"{'='*70}\n")
 
         # Render preview
         print("Step 5: Rendering with aerender...")
@@ -242,6 +303,161 @@ def generate_preview(aepx_path: str, mappings: Dict[str, Any],
         #     print(f"⚠️  Failed to cleanup temp directory: {str(e)}\n")
 
 
+def extract_composition_names(aepx_path: str) -> list:
+    """
+    Extract composition names from AEPX file.
+
+    Args:
+        aepx_path: Path to AEPX file
+
+    Returns:
+        List of composition names found in project
+    """
+    composition_names = []
+
+    # Verify file exists
+    if not os.path.exists(aepx_path):
+        print(f"    ⚠️  File does not exist: {aepx_path}")
+        return []
+
+    file_size = os.path.getsize(aepx_path)
+    print(f"    File size: {file_size:,} bytes")
+
+    try:
+        import xml.etree.ElementTree as ET
+
+        print(f"    Parsing as XML...")
+        # Parse AEPX as XML
+        tree = ET.parse(aepx_path)
+        root = tree.getroot()
+        print(f"    Root tag: {root.tag}")
+
+        # Search for composition elements
+        # AEPX format uses various tags, try common ones
+        for comp in root.iter():
+            # Check for composition name in various possible locations
+            if comp.tag in ['Composition', 'Item']:
+                # Look for name attribute or child element
+                name = comp.get('name') or comp.get('Name')
+                if name and name not in composition_names:
+                    composition_names.append(name)
+                    print(f"    Found (attr): '{name}'")
+
+                # Also check for Name child element
+                name_elem = comp.find('Name') or comp.find('name')
+                if name_elem is not None and name_elem.text:
+                    if name_elem.text not in composition_names:
+                        composition_names.append(name_elem.text)
+                        print(f"    Found (elem): '{name_elem.text}'")
+
+        print(f"    XML parsing found {len(composition_names)} composition(s)")
+
+        # If no compositions found via XML parsing, try regex search
+        if not composition_names:
+            print(f"    Trying regex fallback...")
+            with open(aepx_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            import re
+            # Look for composition-like patterns
+            patterns = [
+                r'<Composition[^>]+name="([^"]+)"',
+                r'<Item[^>]+name="([^"]+)"[^>]+type="composition"',
+                r'name="([^"]+)"[^>]*>\s*<Composition',
+            ]
+
+            for pattern in patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches:
+                    if match and match not in composition_names:
+                        composition_names.append(match)
+                        print(f"    Found (regex): '{match}'")
+
+            print(f"    Regex found {len(composition_names)} composition(s)")
+
+        return composition_names
+
+    except Exception as e:
+        print(f"    ❌ Error extracting compositions: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+
+def search_for_footage_by_filename(filename: str) -> str | None:
+    """
+    Search for footage file by filename across multiple directories.
+
+    Args:
+        filename: Name of the file to find (e.g., "green_yellow_bg.png")
+
+    Returns:
+        Absolute path to found file, or None if not found
+    """
+    # Search locations
+    search_dirs = [
+        'uploads',
+        'footage',
+        'sample_files',
+        'sample_files/footage',
+        'assets',
+        'media',
+        'static/uploads',
+    ]
+
+    for search_dir in search_dirs:
+        if not os.path.exists(search_dir):
+            continue
+
+        # Search in directory and all subdirectories
+        for root, dirs, files in os.walk(search_dir):
+            if filename in files:
+                found_path = os.path.join(root, filename)
+                return os.path.abspath(found_path)
+
+    return None
+
+
+def create_placeholder_image(output_path: str, width: int = 1920, height: int = 1080) -> bool:
+    """
+    Create a placeholder image for missing footage.
+
+    Args:
+        output_path: Where to save placeholder image
+        width: Image width
+        height: Image height
+
+    Returns:
+        True if created successfully
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        # Create solid color image
+        img = Image.new('RGB', (width, height), color='#333333')
+        draw = ImageDraw.Draw(img)
+
+        # Add text
+        filename = os.path.basename(output_path)
+        text = f"MISSING FOOTAGE\n{filename}"
+
+        # Draw text in center
+        bbox = draw.textbbox((0, 0), text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        position = ((width - text_width) / 2, (height - text_height) / 2)
+
+        draw.text(position, text, fill='#999999')
+
+        # Save
+        img.save(output_path)
+        return True
+
+    except Exception as e:
+        print(f"    ⚠️  Could not create placeholder: {e}")
+        return False
+
+
 def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str) -> str:
     """
     Prepare temporary project file with content mappings.
@@ -264,6 +480,9 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
     try:
         from modules.phase2.aepx_path_fixer import find_footage_references
 
+        # Get image sources from options (exported PSD layers)
+        image_sources = mappings.get('image_sources', {}) if 'image_sources' in mappings else {}
+
         # Find all footage references
         footage_refs = find_footage_references(aepx_path)
 
@@ -272,67 +491,98 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
 
         copied_count = 0
         not_found = []
+        path_mapping = {}  # Track original path -> new path for AEPX updates
 
         for ref in footage_refs:
             ref_path = ref['path']
+            filename = os.path.basename(ref_path)
+
+            print(f"\n  Looking for: {filename}")
 
             # Determine if path is absolute or relative
             is_absolute = os.path.isabs(ref_path)
 
             source_file = None
+            search_method = None
 
-            if is_absolute:
-                # For absolute paths, use as-is
-                if os.path.exists(ref_path):
-                    source_file = Path(ref_path)
-            else:
-                # For relative paths, search multiple locations
-                aepx_dir = Path(original_dir)
-                ref_path_obj = Path(ref_path)
-                filename = ref_path_obj.name
-
-                # Try multiple search locations
-                search_paths = [
-                    aepx_dir / ref_path,                        # Relative to AEPX
-                    Path('sample_files') / ref_path,            # In sample_files
-                    Path('sample_files') / 'footage' / filename,  # In sample_files/footage/
-                    Path('footage') / filename,                 # In root footage/
-                    Path('assets') / filename,                  # In root assets/
-                    Path('media') / filename,                   # In root media/
-                ]
-
-                # Find first existing file
-                for search_path in search_paths:
-                    if search_path.exists():
-                        source_file = search_path
+            # FIRST: Check if this file is in exported PSD layers (by filename match)
+            filename_base = os.path.splitext(filename)[0].lower()  # Remove extension, lowercase
+            for layer_name, layer_path in image_sources.items():
+                layer_name_safe = layer_name.lower().replace(' ', '_')
+                if filename_base == layer_name_safe or filename_base in layer_name_safe:
+                    if os.path.exists(layer_path):
+                        source_file = Path(layer_path)
+                        search_method = "exported PSD layer"
+                        print(f"    ✅ Using exported PSD layer: {layer_path}")
                         break
 
-            # Copy if source found
-            if source_file and source_file.exists():
-                # Determine destination path (maintain relative structure)
+            # If not found in exported layers, continue with regular search
+            if not source_file:
                 if is_absolute:
-                    # For absolute paths, copy to temp dir root
-                    dest_file = Path(temp_dir) / source_file.name
-                else:
-                    # For relative paths, maintain structure
-                    dest_file = Path(temp_dir) / ref_path
+                    # For absolute paths, check if exists
+                    if os.path.exists(ref_path):
+                        source_file = Path(ref_path)
+                        search_method = "original path"
+                    else:
+                        # Absolute path doesn't exist - search by filename
+                        print(f"    ❌ Original path not found: {ref_path}")
+                        print(f"    🔍 Searching for '{filename}' in project directories...")
 
+                        found_path = search_for_footage_by_filename(filename)
+                        if found_path:
+                            source_file = Path(found_path)
+                            search_method = f"found in {os.path.dirname(found_path)}"
+                            print(f"    ✅ Found alternative: {found_path}")
+                else:
+                    # For relative paths, search multiple locations
+                    aepx_dir = Path(original_dir)
+                    ref_path_obj = Path(ref_path)
+
+                    # Try multiple search locations
+                    search_paths = [
+                        aepx_dir / ref_path,                        # Relative to AEPX
+                        Path('sample_files') / ref_path,            # In sample_files
+                        Path('sample_files') / 'footage' / filename,  # In sample_files/footage/
+                        Path('footage') / filename,                 # In root footage/
+                        Path('assets') / filename,                  # In root assets/
+                        Path('media') / filename,                   # In root media/
+                    ]
+
+                    # Find first existing file
+                    for search_path in search_paths:
+                        if search_path.exists():
+                            source_file = search_path
+                            search_method = f"found in {search_path.parent}"
+                            break
+
+            # Copy if source found, or create placeholder
+            dest_file = Path(temp_dir) / filename  # Always use just filename in temp
+
+            if source_file and source_file.exists():
                 # Create destination directory if needed
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
 
                 # Copy file
                 shutil.copy2(str(source_file), str(dest_file))
+                print(f"    ✅ Copied to temp directory ({search_method})")
 
-                # Show which location was used
-                if source_file != Path(original_dir) / ref_path:
-                    print(f"  ✓ Copied: {ref_path} (found in {source_file.parent})")
-                else:
-                    print(f"  ✓ Copied: {ref_path}")
-
+                # Track mapping for AEPX update
+                path_mapping[ref_path] = str(dest_file)
                 copied_count += 1
             else:
-                not_found.append(ref_path)
-                print(f"  ✗ Not found: {ref_path}")
+                # File not found anywhere - create placeholder
+                print(f"    ⚠️  Not found anywhere - creating placeholder")
+
+                # Create destination directory if needed
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+
+                # Create placeholder image
+                if create_placeholder_image(str(dest_file)):
+                    print(f"    ✅ Created placeholder: {dest_file}")
+                    path_mapping[ref_path] = str(dest_file)
+                else:
+                    not_found.append(ref_path)
+                    print(f"    ❌ Could not create placeholder")
 
         # Summary
         if copied_count > 0:
@@ -346,42 +596,35 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
     except Exception as e:
         print(f"⚠️  Warning: Could not copy footage files: {str(e)}\n")
 
-    # Update AEPX to use absolute paths for footage
-    print("Step 3.6: Updating AEPX to use absolute footage paths...")
+    # Update AEPX to use new footage paths
+    print("\nStep 3.6: Updating AEPX footage paths...")
     try:
-        import xml.etree.ElementTree as ET
-
         # Read AEPX as text for path replacement
         with open(temp_project, 'r', encoding='utf-8') as f:
             aepx_content = f.read()
 
-        # Find all footage references from the AEPX
-        from modules.phase2.aepx_path_fixer import find_footage_references
-        footage_refs = find_footage_references(temp_project)
-
         updated_count = 0
-        for ref in footage_refs:
-            ref_path = ref['path']
 
-            # Only update relative paths
-            if not os.path.isabs(ref_path):
-                # Convert to absolute path in temp directory
-                abs_path = str(Path(temp_dir) / ref_path)
+        # Replace all mapped paths (both absolute and relative)
+        for old_path, new_path in path_mapping.items():
+            # Replace in AEPX content (escape special regex chars)
+            import re
+            old_path_escaped = re.escape(old_path)
 
-                # Replace in AEPX content (escape special regex chars)
-                import re
-                ref_path_escaped = re.escape(ref_path)
-                aepx_content = re.sub(ref_path_escaped, abs_path, aepx_content)
+            # Count matches before replacing
+            matches = len(re.findall(old_path_escaped, aepx_content))
 
-                print(f"  ✓ Updated: {ref_path} → {abs_path}")
-                updated_count += 1
+            if matches > 0:
+                aepx_content = re.sub(old_path_escaped, new_path, aepx_content)
+                print(f"  ✓ Updated: {os.path.basename(old_path)} ({matches} reference(s))")
+                updated_count += matches
 
         # Write updated AEPX back
         with open(temp_project, 'w', encoding='utf-8') as f:
             f.write(aepx_content)
 
         if updated_count > 0:
-            print(f"✅ Updated {updated_count} path(s) in AEPX")
+            print(f"\n✅ Updated {updated_count} footage path(s) in AEPX")
         else:
             print("  (No paths needed updating)")
         print()
@@ -525,6 +768,9 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
 
     # Step 3.7: Populate template with content using ExtendScript
     print("Step 3.7: Populating template with content...")
+
+    populated_successfully = False
+
     try:
         if os.path.exists(script_path):
             print(f"  ✓ Generated ExtendScript: {os.path.basename(script_path)}")
@@ -536,47 +782,101 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
             abs_project_path = os.path.abspath(temp_project)
             abs_script_path = os.path.abspath(script_path)
 
+            # Escape paths for AppleScript
+            abs_project_path_escaped = abs_project_path.replace('\\', '\\\\').replace('"', '\\"')
+            abs_script_path_escaped = abs_script_path.replace('\\', '\\\\').replace('"', '\\"')
+
             # AppleScript to open project, run script, save, and quit
+            # Using 'do script' with file path instead of 'DoScriptFile'
             applescript = f'''
             tell application "Adobe After Effects 2025"
                 activate
-                open POSIX file "{abs_project_path}"
-                delay 3
-                DoScriptFile "{abs_script_path}"
-                delay 2
+                delay 1
+                open POSIX file "{abs_project_path_escaped}"
+                delay 5
+
+                -- Run the ExtendScript
+                do script "$.evalFile('{abs_script_path_escaped}');"
+                delay 5
+
+                -- Save the project
                 save
+                delay 2
+
+                -- Quit After Effects
                 quit
             end tell
             '''
 
             print("  ✓ Running population script...")
+            print(f"    Project: {abs_project_path}")
+            print(f"    Script: {abs_script_path}")
 
             # Execute AppleScript
             result = subprocess.run(
-                ['osascript', '-e', applescript],
+                ['osascript', '-'],
+                input=applescript,
                 capture_output=True,
                 text=True,
-                timeout=60  # 1 minute timeout
+                timeout=120  # 2 minute timeout (increased)
             )
 
+            print(f"  ✓ AppleScript return code: {result.returncode}")
+            if result.stdout:
+                print(f"    stdout: {result.stdout}")
+            if result.stderr:
+                print(f"    stderr: {result.stderr}")
+
             if result.returncode == 0:
-                print("  ✓ Project saved with populated content")
-                print("✅ Template populated successfully\n")
+                # Wait for AE to fully close and save
+                print("  ✓ Waiting for After Effects to close...")
+                import time
+                time.sleep(3)
+
+                # Verify project was modified (check modification time)
+                if os.path.exists(temp_project):
+                    mtime = os.path.getmtime(temp_project)
+                    import time
+                    age_seconds = time.time() - mtime
+
+                    if age_seconds < 120:  # Modified in last 2 minutes
+                        print(f"  ✓ Project file updated (age: {age_seconds:.1f}s)")
+                        populated_successfully = True
+                    else:
+                        print(f"  ⚠️  Warning: Project file not recently modified (age: {age_seconds:.1f}s)")
+                        print("  (Population may not have succeeded)")
+
+                if populated_successfully:
+                    print("✅ Template populated successfully\n")
+                else:
+                    print("⚠️  Population may have failed - check logs\n")
             else:
-                print(f"⚠️  Warning: Script execution returned code {result.returncode}")
+                print(f"❌ Script execution failed with return code {result.returncode}")
                 if result.stderr:
                     print(f"  Error: {result.stderr}")
-                print("  (Continuing with unpopulated template)\n")
+                print("  (Will try rendering anyway)\n")
 
         else:
-            print("  (No ExtendScript generated - skipping population)\n")
+            print("  ⚠️  No ExtendScript generated - rendering unpopulated template\n")
 
     except subprocess.TimeoutExpired:
-        print("⚠️  Warning: Script execution timed out (>60s)")
-        print("  (Continuing with unpopulated template)\n")
+        print("❌ Script execution timed out (>120s)")
+        print("  After Effects may still be running")
+        print("  (Will try rendering anyway)\n")
     except Exception as e:
-        print(f"⚠️  Warning: Could not populate template: {str(e)}")
-        print("  (Continuing with unpopulated template)\n")
+        print(f"❌ Population error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        print("  (Will try rendering anyway)\n")
+
+    # Add a note to the project path about population status
+    if not populated_successfully:
+        print("⚠️  WARNING: Template may not be populated")
+        print("  The preview might show the empty template")
+        print("  If this happens frequently, check:")
+        print("  - After Effects is installed at the expected path")
+        print("  - ExtendScript has no syntax errors")
+        print("  - Footage files are accessible\n")
 
     return temp_project
 
@@ -597,14 +897,30 @@ def render_with_aerender(project_path: str, comp_name: str, output_path: str,
         True if successful, False otherwise
     """
     try:
+        # Verify project file exists
+        if not os.path.exists(project_path):
+            print(f"❌ Project file not found: {project_path}")
+            return False
+
+        project_size = os.path.getsize(project_path)
+        print(f"✓ Project file exists: {project_path}")
+        print(f"  Size: {project_size:,} bytes")
+        print(f"  Composition: {comp_name}")
+
         # Convert output path to absolute path
         # aerender interprets relative paths relative to AE app directory, not cwd
         abs_output_path = str(Path(output_path).resolve())
+        abs_project_path = str(Path(project_path).resolve())
+
+        # Ensure output directory exists
+        output_dir = Path(abs_output_path).parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  Output: {abs_output_path}")
 
         # Build aerender command
         cmd = [
             aerender_path,
-            '-project', project_path,
+            '-project', abs_project_path,
             '-comp', comp_name,
             '-output', abs_output_path
         ]
@@ -631,13 +947,19 @@ def render_with_aerender(project_path: str, comp_name: str, output_path: str,
             fps = options.get('fps', 15)
             end_frame = int(duration * fps)
             cmd.extend(['-s', '0', '-e', str(end_frame)])
+            print(f"  Duration: {duration}s ({end_frame} frames at {fps} fps)")
+        else:
+            print(f"  Duration: Full composition")
 
         # Print the full command for debugging
         cmd_str = ' '.join([f'"{arg}"' if ' ' in str(arg) else str(arg) for arg in cmd])
         print(f"\n{'='*70}")
-        print(f"Running aerender command:")
-        print(f"  {cmd_str}")
+        print(f"AERENDER COMMAND:")
+        print(f"{'='*70}")
+        print(f"{cmd_str}")
         print(f"{'='*70}\n")
+
+        print("Starting aerender... (this may take 30-60 seconds)\n")
 
         # Run aerender
         result = subprocess.run(
@@ -681,11 +1003,46 @@ def render_with_aerender(project_path: str, comp_name: str, output_path: str,
             print("✅ aerender completed successfully\n")
             return True
         else:
+            print(f"\n{'='*70}")
+            print(f"❌ AERENDER FAILED")
+            print(f"{'='*70}")
+
             if result.returncode != 0:
-                print(f"❌ aerender failed with return code: {result.returncode}")
+                print(f"Return code: {result.returncode}")
+
             if not output_exists:
-                print(f"❌ Output file was not created: {abs_output_path}")
-            print()
+                print(f"Output file was not created: {abs_output_path}")
+
+            # Parse common error messages
+            error_text = (result.stdout + result.stderr).lower()
+
+            if 'composition' in error_text and ('not found' in error_text or 'does not exist' in error_text):
+                print(f"\n💡 LIKELY CAUSE: Composition '{comp_name}' not found in project")
+                print("   Check that the composition name matches exactly (case-sensitive)")
+            elif 'footage' in error_text or 'missing' in error_text:
+                print(f"\n💡 LIKELY CAUSE: Missing footage files")
+                print("   The project references files that couldn't be found")
+                print("   This can happen if:")
+                print("   - PSD layers weren't extracted as images")
+                print("   - Footage paths are incorrect")
+                print("   - Population script didn't complete successfully")
+            elif 'error' in error_text and '1610153459' in error_text:
+                print(f"\n💡 LIKELY CAUSE: Output codec/format issue")
+                print("   Try changing the output format or using a different codec")
+            elif 'memory' in error_text or 'ram' in error_text:
+                print(f"\n💡 LIKELY CAUSE: Insufficient memory")
+                print("   After Effects ran out of memory during rendering")
+            else:
+                print(f"\n💡 Check the aerender output above for specific error messages")
+
+            print(f"\n📋 DEBUGGING STEPS:")
+            print(f"   1. Check if project file exists: {abs_project_path}")
+            print(f"   2. Open project manually in After Effects")
+            print(f"   3. Verify composition '{comp_name}' exists")
+            print(f"   4. Check for missing footage warnings")
+            print(f"   5. Try rendering manually to see detailed error")
+            print(f"{'='*70}\n")
+
             return False
 
     except subprocess.TimeoutExpired as e:

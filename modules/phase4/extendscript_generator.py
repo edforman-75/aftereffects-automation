@@ -228,9 +228,57 @@ function replaceImageSource(layer, imagePath) {
         layer.replaceSource(footage, false);  // false = don't fix expressions
 
         logMessage("  ✓ Replaced with: " + imageFile.name);
+
+        // Auto-scale cutout/player layers to fill frame
+        var layerNameLower = layer.name.toLowerCase();
+        if (layerNameLower.indexOf('cutout') >= 0 || layerNameLower.indexOf('player') >= 0) {
+            scaleLayerToFit(layer, 0.75);  // Scale to 75% of composition height
+        }
+
         return true;
     } catch (e) {
         logMessage("ERROR replacing image for layer '" + layer.name + "': " + e.toString());
+        return false;
+    }
+}
+
+function scaleLayerToFit(layer, heightRatio) {
+    /*
+     * Scale a layer to fit a percentage of the composition height.
+     * Maintains aspect ratio.
+     * Args:
+     *   layer: Layer to scale
+     *   heightRatio: Target height as ratio of comp height (e.g., 0.75 = 75%)
+     */
+    try {
+        var comp = layer.containingComp;
+        if (!comp) return false;
+
+        var compHeight = comp.height;
+        var compWidth = comp.width;
+
+        // Get layer dimensions
+        var layerHeight = layer.height;
+        var layerWidth = layer.width;
+
+        if (!layerHeight || !layerWidth) return false;
+
+        // Calculate scale to achieve target height
+        var targetHeight = compHeight * heightRatio;
+        var scaleFactor = (targetHeight / layerHeight) * 100;
+
+        // Apply scale
+        layer.property("Scale").setValue([scaleFactor, scaleFactor]);
+
+        // Center the layer
+        var xPos = compWidth / 2;
+        var yPos = compHeight / 2;
+        layer.property("Position").setValue([xPos, yPos]);
+
+        logMessage("    ✓ Auto-scaled to " + scaleFactor.toFixed(1) + "% and centered");
+        return true;
+    } catch (e) {
+        logMessage("    ⚠️  Could not auto-scale: " + e.toString());
         return false;
     }
 }

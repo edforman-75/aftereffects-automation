@@ -1,0 +1,6 @@
+job_id,psd_path,aepx_path,output_name,client_name,project_name,priority,notes
+BATCH001,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,output_batch001.aep,TestClient,BatchTest,high,First job in batch
+BATCH002,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,output_batch002.aep,TestClient,BatchTest,medium,Second job in batch
+BATCH003,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,output_batch003.aep,TestClient,BatchTest,medium,Third job in batch
+BATCH004,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,output_batch004.aep,TestClient,BatchTest,low,Fourth job in batch
+BATCH005,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,output_batch005.aep,TestClient,BatchTest,high,Fifth job in batch

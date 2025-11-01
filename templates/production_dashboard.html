@@ -67,6 +67,8 @@
                 <button class="filter-btn" data-stage="2" onclick="filterByStage(2)">Stage 2</button>
                 <button class="filter-btn" data-stage="3" onclick="filterByStage(3)">Stage 3</button>
                 <button class="filter-btn" data-stage="4" onclick="filterByStage(4)">Stage 4</button>
+                <button class="filter-btn" data-stage="5" onclick="filterByStage(5)">Stage 5</button>
+                <button class="filter-btn" data-stage="6" onclick="filterByStage(6)">Stage 6</button>
             </div>
             <div class="priority-filters">
                 <button class="priority-btn active" data-priority="all" onclick="filterByPriority('all')">All</button>
@@ -122,10 +124,10 @@
                     </div>
                 </div>
 
-                <!-- Stage 3: Preview -->
+                <!-- Stage 3: Auto-Validation -->
                 <div class="stage-column" data-stage="3">
                     <div class="stage-header">
-                        <h3>Stage 3: Preview</h3>
+                        <h3>Stage 3: Auto-Validation</h3>
                         <span class="stage-count" id="stage-3-count">0</span>
                     </div>
                     <div class="stage-jobs" id="stage-3-jobs">
@@ -133,13 +135,35 @@
                     </div>
                 </div>
 
-                <!-- Stage 4: Validation -->
+                <!-- Stage 4: Validation Review -->
                 <div class="stage-column" data-stage="4">
                     <div class="stage-header">
-                        <h3>Stage 4: Deploy</h3>
+                        <h3>Stage 4: Review</h3>
                         <span class="stage-count" id="stage-4-count">0</span>
                     </div>
                     <div class="stage-jobs" id="stage-4-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 5: ExtendScript Generation -->
+                <div class="stage-column" data-stage="5">
+                    <div class="stage-header">
+                        <h3>Stage 5: Generate</h3>
+                        <span class="stage-count" id="stage-5-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-5-jobs">
+                        <!-- Jobs will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Stage 6: Download -->
+                <div class="stage-column" data-stage="6">
+                    <div class="stage-header">
+                        <h3>Stage 6: Download</h3>
+                        <span class="stage-count" id="stage-6-count">0</span>
+                    </div>
+                    <div class="stage-jobs" id="stage-6-jobs">
                         <!-- Jobs will be inserted here -->
                     </div>
                 </div>

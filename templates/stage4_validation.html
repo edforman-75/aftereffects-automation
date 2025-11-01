@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 4: Validation & Deployment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stage4_validation.css') }}">
+</head>
+<body>
+    <div class="validation-container">
+        <!-- Header -->
+        <header class="validation-header">
+            <div class="header-left">
+                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+                <h1>Stage 4: Validation & Deployment</h1>
+            </div>
+            <div class="header-right">
+                <span class="job-id-display" id="job-id-display">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Job Info Bar -->
+        <div class="job-info-bar" id="job-info-bar">
+            <div class="info-item">
+                <span class="info-label">Client:</span>
+                <span class="info-value" id="client-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Project:</span>
+                <span class="info-value" id="project-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Output File:</span>
+                <span class="info-value" id="output-filename">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Validation Status:</span>
+                <span class="info-value">
+                    <span class="status-badge" id="validation-status">Pending</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Validation Results Section -->
+        <div class="validation-section">
+            <div class="section-header">
+                <h2>Plainly Validator Results</h2>
+                <button class="btn btn-secondary" id="revalidate-btn" onclick="runValidation()" style="display:none;">
+                    Re-run Validation
+                </button>
+            </div>
+
+            <!-- Validation Summary -->
+            <div class="validation-summary" id="validation-summary">
+                <div class="summary-card">
+                    <div class="summary-icon success-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="summary-content">
+                        <h3>Validation Passed</h3>
+                        <p>Your After Effects project passed all Plainly validation checks!</p>
+                        <div class="summary-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Checks Passed:</span>
+                                <span class="stat-value" id="checks-passed">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Warnings:</span>
+                                <span class="stat-value warning" id="warnings-count">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Errors:</span>
+                                <span class="stat-value error" id="errors-count">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation Details -->
+            <div class="validation-details">
+                <h3>Validation Checks</h3>
+                <div class="checks-list" id="checks-list">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Errors/Warnings Section -->
+            <div class="issues-section" id="issues-section" style="display:none;">
+                <h3>Issues Found</h3>
+                <div class="issues-list" id="issues-list">
+                    <!-- Populated by JavaScript if there are issues -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="download-section">
+            <div class="download-card">
+                <div class="download-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </div>
+                <div class="download-content">
+                    <h3>Download Final AEP</h3>
+                    <p>Your final After Effects project is ready for download.</p>
+                    <button class="btn btn-download" onclick="downloadFinalAEP()">
+                        Download AEP File
+                    </button>
+                    <div class="file-info">
+                        <span class="file-size" id="file-size">Size: -</span>
+                        <span class="file-date" id="file-date">Created: -</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deployment Section -->
+        <div class="deployment-section">
+            <h2>Deploy to Plainly</h2>
+            <p>Once validated, you can deploy this template directly to your Plainly account.</p>
+
+            <div class="deployment-status" id="deployment-status">
+                <div class="status-indicator pending">
+                    <div class="indicator-dot"></div>
+                    <span>Ready to Deploy</span>
+                </div>
+            </div>
+
+            <div class="deployment-form">
+                <div class="form-group">
+                    <label for="template-name">Template Name</label>
+                    <input type="text" id="template-name" class="form-input" placeholder="Enter template name...">
+                </div>
+                <div class="form-group">
+                    <label for="template-description">Description (Optional)</label>
+                    <textarea id="template-description" class="form-textarea" rows="3" placeholder="Describe this template..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="auto-publish">
+                        Auto-publish template after deployment
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">
+                    Back to Dashboard
+                </button>
+            </div>
+            <div class="action-right">
+                <button class="btn btn-warning" id="sign-off-btn" onclick="signOffWithErrors()" style="display:none;">
+                    Sign Off Despite Errors
+                </button>
+                <button class="btn btn-primary" id="deploy-btn" onclick="deployToPlainly()">
+                    Deploy to Plainly
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deployment Confirmation Modal -->
+    <div class="modal" id="deploy-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Deployment</h3>
+                <span class="modal-close" onclick="closeDeployModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>You are about to deploy this template to Plainly with the following details:</p>
+                <div class="deployment-summary">
+                    <div class="summary-row">
+                        <span class="label">Template Name:</span>
+                        <span class="value" id="deploy-template-name">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Project:</span>
+                        <span class="value" id="deploy-project-name">-</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Auto-publish:</span>
+                        <span class="value" id="deploy-auto-publish">-</span>
+                    </div>
+                </div>
+                <p class="confirmation-note">This will upload the AEP file and create a new template in your Plainly account.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeployModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmDeploy()">Confirm Deployment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading-message">Loading validation data...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/stage4_validation.js') }}"></script>
+</body>
+</html>

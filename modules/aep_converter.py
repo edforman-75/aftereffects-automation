@@ -57,16 +57,13 @@ class AEPConverter:
             aep_path = os.path.abspath(aep_path)
             output_path = os.path.abspath(output_path)
 
-            # AppleScript to open AEP and save as AEPX
+            # AppleScript to open AEP and save as AEPX (headless mode)
             applescript = f'''
             tell application "Adobe After Effects 2025"
-                activate
+                -- Don't activate to keep AE in background
 
                 -- Open the AEP file
                 open POSIX file "{aep_path}"
-
-                -- Wait a moment for file to open
-                delay 2
 
                 -- Save as AEPX (XML format)
                 tell front project
@@ -75,6 +72,11 @@ class AEPConverter:
 
                 -- Close the project without saving again
                 close front project saving no
+            end tell
+
+            -- Hide After Effects after conversion
+            tell application "System Events"
+                set visible of process "Adobe After Effects 2025" to false
             end tell
             '''
 

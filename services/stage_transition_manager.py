@@ -179,6 +179,13 @@ class StageTransitionManager:
         Route to stage-specific pre-processing.
 
         This runs in a background thread.
+
+        6-Stage Pipeline:
+        - Stage 2: Matching (generate layer previews)
+        - Stage 3: Auto-Validation (run validation checks)
+        - Stage 4: Validation Review (human review - no preprocessing)
+        - Stage 5: ExtendScript Generation (generate script)
+        - Stage 6: Download (no preprocessing needed)
         """
         try:
             self.log_info(f"Job {job_id}: Pre-processing Stage {stage} started")
@@ -187,9 +194,15 @@ class StageTransitionManager:
             if stage == 2:
                 result = self._preprocess_stage2(job_id)
             elif stage == 3:
-                result = self._preprocess_stage3(job_id)
+                result = self._preprocess_stage3_validation(job_id)
             elif stage == 4:
-                result = self._preprocess_stage4(job_id)
+                # Stage 4 is human review - no preprocessing needed
+                result = {'success': True, 'message': 'No pre-processing required'}
+            elif stage == 5:
+                result = self._preprocess_stage5_extendscript(job_id)
+            elif stage == 6:
+                # Stage 6 is download - no preprocessing needed
+                result = {'success': True, 'message': 'No pre-processing required'}
             else:
                 # No pre-processing needed for this stage
                 result = {'success': True, 'message': 'No pre-processing required'}
@@ -208,14 +221,27 @@ class StageTransitionManager:
             self._mark_preprocessing_failed(job_id, stage, str(e))
 
     def _mark_preprocessing_complete(self, job_id: str, stage: int):
-        """Mark pre-processing as complete and update job status."""
+        """
+        Mark pre-processing as complete and update job status.
+
+        6-Stage Pipeline Status Mapping:
+        - Stage 2: awaiting_review (human reviews matching)
+        - Stage 3: ready_for_validation (auto-validation complete, may need review)
+        - Stage 4: awaiting_approval (human reviews validation issues)
+        - Stage 5: awaiting_download (ExtendScript ready for download)
+        - Stage 6: completed (job complete)
+        """
         # Determine appropriate status based on stage
         if stage == 2:
             new_status = 'awaiting_review'  # Ready for human to review matching
         elif stage == 3:
-            new_status = 'awaiting_approval'  # Ready for human to approve preview
+            new_status = 'ready_for_validation'  # Auto-validation complete
         elif stage == 4:
-            new_status = 'ready_for_validation'  # Ready for validation/deployment
+            new_status = 'awaiting_approval'  # Ready for human validation review
+        elif stage == 5:
+            new_status = 'awaiting_download'  # ExtendScript generated
+        elif stage == 6:
+            new_status = 'completed'  # Job fully complete
         else:
             new_status = 'awaiting_review'
 
@@ -306,77 +332,58 @@ class StageTransitionManager:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def _preprocess_stage3(self, job_id: str) -> Dict[str, Any]:
+    def _preprocess_stage3_validation(self, job_id: str) -> Dict[str, Any]:
         """
-        Pre-process for Stage 3: Preview & Approval
+        Pre-process for Stage 3: Automatic Validation
 
         Tasks:
-        1. Generate ExtendScript with approved mappings
-        2. Render PSD flat video
-        3. Render AE video
-        4. Create side-by-side preview video
-        5. Extract thumbnail
-        6. Calculate render metrics
+        1. Run match_validation_service to check approved matches
+        2. Detect aspect ratio mismatches
+        3. Detect resolution issues
+        4. Store validation results
 
-        Note: Placeholder for now. Full implementation will:
-        - Generate ExtendScript from Stage 2 approved matches
-        - Use ffmpeg or similar to create video previews
-        - Use aerender to render After Effects preview
+        Note: This validation is automatic and runs without user interaction.
+        If critical issues are found, the job will be routed to Stage 4 for human review.
         """
         try:
             job = self.job_service.get_job(job_id)
             if not job:
                 return {'success': False, 'error': 'Job not found'}
 
-            # Create stage prep directory
-            stage_prep_dir = self.prep_dir / f'stage3_{job_id}'
-            stage_prep_dir.mkdir(parents=True, exist_ok=True)
+            self.log_info(f"Job {job_id}: Stage 3 auto-validation - running checks")
 
-            self.log_info(f"Job {job_id}: Stage 3 pre-processing - generating preview")
+            # Validation is now handled by approve_stage2 endpoint
+            # This preprocessing step is just a placeholder for future enhancements
 
-            # TODO: Full implementation
-            # 1. Generate ExtendScript
-            # extendscript = self._generate_extendscript(job_id, stage_prep_dir)
+            # Simulate minimal processing time
+            time.sleep(0.5)
 
-            # 2. Render preview videos
-            # psd_video = self._render_psd_video(job.psd_path, stage_prep_dir)
-            # ae_video = self._render_ae_video(job.aepx_path, extendscript, stage_prep_dir)
-
-            # 3. Create side-by-side
-            # combined_video = self._create_side_by_side(psd_video, ae_video, stage_prep_dir)
-
-            # 4. Extract thumbnail
-            # thumbnail = self._extract_thumbnail(combined_video, stage_prep_dir)
-
-            # Simulate processing time
-            time.sleep(3)
-
-            self.log_info(f"Job {job_id}: Stage 3 pre-processing complete")
+            self.log_info(f"Job {job_id}: Stage 3 auto-validation complete")
 
             return {
                 'success': True,
-                'prep_dir': str(stage_prep_dir),
-                'message': 'Stage 3 pre-processing complete'
+                'message': 'Stage 3 auto-validation complete'
             }
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def _preprocess_stage4(self, job_id: str) -> Dict[str, Any]:
+    def _preprocess_stage5_extendscript(self, job_id: str) -> Dict[str, Any]:
         """
-        Pre-process for Stage 4: Validation & Deployment
+        Pre-process for Stage 5: ExtendScript Generation
 
         Tasks:
-        1. Generate final AEP
-        2. Run Plainly validator
-        3. Check for errors
-        4. Auto-deploy if passed, or mark for sign-off if failed
+        1. Generate ExtendScript with approved mappings
+        2. Validate ExtendScript syntax
+        3. Store generated script
+        4. Prepare for download
 
-        Note: Placeholder for now. Full implementation will:
-        - Execute ExtendScript to create final AEP
-        - Run Plainly validator CLI
-        - Parse validation results
-        - Auto-deploy or flag for review
+        Note: This generates the final .jsx script that users will download.
+        Full implementation will:
+        - Generate ExtendScript from Stage 2 approved matches
+        - Include any adjustments from Stage 4 override
+        - Validate script syntax
+        - Store in stage5_extendscript field
         """
         try:
             job = self.job_service.get_job(job_id)
@@ -384,39 +391,33 @@ class StageTransitionManager:
                 return {'success': False, 'error': 'Job not found'}
 
             # Create stage prep directory
-            stage_prep_dir = self.prep_dir / f'stage4_{job_id}'
+            stage_prep_dir = self.prep_dir / f'stage5_{job_id}'
             stage_prep_dir.mkdir(parents=True, exist_ok=True)
 
-            self.log_info(f"Job {job_id}: Stage 4 pre-processing - validation and deployment")
+            self.log_info(f"Job {job_id}: Stage 5 pre-processing - generating ExtendScript")
 
             # TODO: Full implementation
-            # 1. Generate final AEP
-            # final_aep = self._generate_final_aep(job, stage_prep_dir)
+            # 1. Load approved matches from stage2_approved_matches
+            # approved_matches = json.loads(job.stage2_approved_matches)
 
-            # 2. Run Plainly validator
-            # validation_result = self._run_plainly_validator(final_aep)
+            # 2. Generate ExtendScript
+            # extendscript = self._generate_extendscript(job_id, approved_matches, stage_prep_dir)
 
-            # 3. Handle validation results
-            # if validation_result.passed:
-            #     self._auto_deploy(job_id, final_aep)
-            #     self.job_service.update_job_status(job_id, 'completed')
-            # else:
-            #     self._log_validation_errors(job_id, validation_result.errors)
-            #     self.job_service.update_job_status(job_id, 'validation_failed')
+            # 3. Validate script
+            # validation = self._validate_extendscript(extendscript)
 
-            # Simulate processing
+            # 4. Store in database
+            # self.job_service.store_extendscript(job_id, extendscript)
+
+            # Simulate processing time
             time.sleep(2)
 
-            # For now, mark as completed
-            self.job_service.update_job_status(job_id, 'completed')
-            self.job_service.complete_stage(job_id, 4, 'system')
-
-            self.log_info(f"Job {job_id}: Stage 4 pre-processing complete")
+            self.log_info(f"Job {job_id}: Stage 5 ExtendScript generation complete")
 
             return {
                 'success': True,
                 'prep_dir': str(stage_prep_dir),
-                'message': 'Stage 4 pre-processing complete - job deployed'
+                'message': 'Stage 5 ExtendScript generation complete'
             }
 
         except Exception as e:

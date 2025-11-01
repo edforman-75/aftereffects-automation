@@ -178,6 +178,153 @@
                 </div>
             </div>
         </section>
+
+        <!-- Plainly Validation Section -->
+        <section class="card validation-section" id="validationSection" style="display: none;">
+            <h2>6. Plainly Validation</h2>
+            <p class="section-description">Validate your template for Plainly compatibility before deployment</p>
+
+            <div class="validation-controls">
+                <button id="validatePlainlyBtn" class="btn btn-primary btn-large">🔍 Validate for Plainly</button>
+                <button id="skipValidationBtn" class="btn btn-secondary">Skip Validation</button>
+            </div>
+
+            <div class="status-message" id="validationStatus"></div>
+
+            <!-- Validation Report -->
+            <div id="validationReport" style="display: none;">
+                <!-- Score Card -->
+                <div class="validation-score-card" id="validationScoreCard">
+                    <div class="score-display">
+                        <div class="score-number" id="scoreNumber">--</div>
+                        <div class="score-grade" id="scoreGrade">-</div>
+                    </div>
+                    <div class="score-message" id="scoreMessage">Validating...</div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="validation-summary" id="validationSummary"></div>
+
+                <!-- Auto-Fix Section -->
+                <div class="auto-fix-section" id="autoFixSection" style="display: none;">
+                    <div class="auto-fix-banner">
+                        <div class="auto-fix-info">
+                            <h3>🔧 Auto-Fix Available</h3>
+                            <p id="autoFixCount">Some issues can be automatically fixed</p>
+                        </div>
+                        <button id="fixAllBtn" class="btn btn-primary btn-large">🔧 Fix All Issues</button>
+                    </div>
+                    <div class="fix-progress" id="fixProgress" style="display: none;"></div>
+                </div>
+
+                <!-- Issues Breakdown -->
+                <div class="issues-container" id="issuesContainer">
+                    <!-- Critical Issues -->
+                    <div class="issues-category critical-issues" id="criticalIssues" style="display: none;">
+                        <h3 class="issues-header">🔴 Critical Issues</h3>
+                        <p class="issues-description">These must be fixed before Plainly deployment</p>
+                        <div class="issues-list" id="criticalIssuesList"></div>
+                    </div>
+
+                    <!-- Warnings -->
+                    <div class="issues-category warning-issues" id="warningIssues" style="display: none;">
+                        <h3 class="issues-header">⚠️ Warnings</h3>
+                        <p class="issues-description">Strongly recommended to fix for optimal performance</p>
+                        <div class="issues-list" id="warningIssuesList"></div>
+                    </div>
+
+                    <!-- Info/Recommendations -->
+                    <div class="issues-category info-issues" id="infoIssues" style="display: none;">
+                        <h3 class="issues-header">ℹ️ Recommendations</h3>
+                        <p class="issues-description">Best practices for performance optimization</p>
+                        <div class="issues-list" id="infoIssuesList"></div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="validation-actions" id="validationActions">
+                    <button id="downloadReportBtn" class="btn btn-secondary">📄 Download Report</button>
+                    <button id="deployToPlainlyBtn" class="btn btn-success btn-large" style="display: none;">✅ Deploy to Plainly</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preview & Sign-off Section -->
+        <section class="card preview-signoff-section" id="previewSignoffSection" style="display: none;">
+            <h2>7. Preview & Sign-off</h2>
+
+            <!-- Mode Badge -->
+            <div class="mode-badge">
+                {% if VALIDATE_BEFORE_PREVIEW %}
+                    <span class="badge badge-green">Mode A: Validate → Preview → Sign-off → Render</span>
+                {% else %}
+                    <span class="badge badge-blue">Mode B: Preview → Validate → Sign-off → Render</span>
+                {% endif %}
+            </div>
+
+            <!-- Generate Previews Button -->
+            <div class="preview-controls">
+                <button id="generatePreviewsBtn" class="btn btn-primary btn-large">
+                    🎬 Generate Side-by-Side Previews
+                </button>
+                <div class="status-message" id="previewGenStatus"></div>
+            </div>
+
+            <!-- Side-by-Side Preview -->
+            <div id="previewContainer" class="two-col" style="display: none;">
+                <!-- Left: PSD Reference -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>PSD Reference</h3>
+                        <div class="btn-row">
+                            <a id="openPsdBtn" class="btn btn-secondary" download>📄 Download PSD</a>
+                            <button id="regeneratePsdBtn" class="btn btn-secondary">🔄 Regenerate</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <img id="psdPreviewImg" class="media-box" alt="PSD preview" />
+                    </div>
+                </div>
+
+                <!-- Right: AE Preview -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>After Effects Preview</h3>
+                        <div class="btn-row">
+                            <a id="openAepxBtn" class="btn btn-secondary" download>🎬 Download AEPX</a>
+                            <button id="regenerateAeBtn" class="btn btn-secondary">🔄 Regenerate</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <video id="aePreviewVideo" class="media-box" controls preload="metadata"></video>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation Summary Strip -->
+            <div id="validationStrip" class="validation-strip" style="display: none;">
+                <span class="strip-label">Validation Status:</span>
+                <span id="validationBadge" class="badge"></span>
+                <a id="viewReportLink" class="link" href="#validationSection">View Full Report</a>
+            </div>
+
+            <!-- Sign-off Card -->
+            <div id="signoffCard" class="signoff-card" style="display: none;">
+                <h3>✍️ Sign-off</h3>
+                <p class="signoff-description">
+                    I confirm the PSD render (left) and AE preview (right) match expectations and are ready for final production render.
+                </p>
+                <textarea id="signoffNotes" class="signoff-textarea" placeholder="Optional notes (e.g., 'Approved for client delivery')"></textarea>
+                <label class="signoff-checkbox">
+                    <input type="checkbox" id="signoffCheckbox">
+                    <span>I approve this preview for final high-quality render</span>
+                </label>
+                <button id="approveBtn" class="btn btn-success btn-large" disabled>
+                    ✅ Approve & Start Final Render
+                </button>
+                <div id="signoffStatus" class="status-message"></div>
+            </div>
+        </section>
     </div>
 
     <script>
@@ -284,6 +431,7 @@
 
                 if (result.success) {
                     sessionId = result.data.session_id;
+                    console.log("✅ Session ID set after upload:", sessionId);
                     showStatus('uploadStatus', result.message, 'success');
                     displayFileInfo(result.data);
                     document.getElementById('infoSection').style.display = 'block';
@@ -474,16 +622,34 @@
                     originalMappings = JSON.parse(JSON.stringify(result.data.mappings));
 
                     // Extract all layers and placeholders for visual mapping
+                    console.log('🔍 Auto-Match Result Data:', result.data);
+                    console.log('🔍 Mappings:', result.data.mappings);
                     allPsdLayers = result.data.mappings.map(m => m.psd_layer)
                         .concat(result.data.unmapped_psd || []);
                     allPlaceholders = result.data.mappings.map(m => m.aepx_placeholder)
                         .concat(result.data.unfilled_placeholders || []);
+                    console.log('📦 Extracted allPsdLayers:', allPsdLayers);
+                    console.log('📦 Extracted allPlaceholders:', allPlaceholders);
 
                     displayMappings(result.data);
                     displayConflicts(result.data.conflicts);
                     document.getElementById('mappingsSection').style.display = 'block';
                     document.getElementById('conflictsSection').style.display = 'block';
                     document.getElementById('previewSection').style.display = 'block';
+
+                    // Show clear success notification with stats
+                    const totalMapped = result.data.mappings.length;
+                    const unmappedCount = (result.data.unmapped_psd || []).length;
+                    const avgConfidence = result.data.statistics?.average_confidence
+                        ? (result.data.statistics.average_confidence * 100).toFixed(0)
+                        : 'N/A';
+
+                    let message = `✅ Auto-matched ${totalMapped} layer${totalMapped !== 1 ? 's' : ''} (${avgConfidence}% confidence)`;
+                    if (unmappedCount > 0) {
+                        message += `\n⚠️ ${unmappedCount} layer${unmappedCount !== 1 ? 's' : ''} unmapped - use Visual Mapper to map manually`;
+                    }
+
+                    alert(message);
                 } else {
                     alert(result.message);
                     matchBtn.disabled = false;
@@ -552,16 +718,15 @@
             const statusEl = document.getElementById('mappingLoadStatus');
 
             loadBtn.disabled = true;
-            statusEl.textContent = '⏳ Loading visual mapping interface...';
+            statusEl.textContent = '⏳ Generating layer thumbnails...';
             statusEl.className = 'status-message status-info';
             statusEl.style.display = 'block';
 
             try {
-                // Skip preview generation - just use layer names
-                // Create placeholder preview data
+                // Create placeholder preview data initially
                 psdLayerPreviews = {};
                 allPsdLayers.forEach(layer => {
-                    psdLayerPreviews[layer] = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23e0e0e0"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%23333">No Preview</text></svg>';
+                    psdLayerPreviews[layer] = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23e0e0e0"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%23333">Loading...</text></svg>';
                 });
 
                 aepxPlaceholderPreviews = {};
@@ -571,22 +736,120 @@
 
                 previewsLoaded = true;
 
-                // Display visual mapping interface
+                // Display visual mapping interface with placeholders
                 displayVisualMappingInterface();
 
-                statusEl.textContent = '✅ Visual mapping interface loaded';
-                statusEl.className = 'status-message status-success';
+                // Generate real thumbnails in background
+                statusEl.textContent = '⏳ Generating real layer previews with Photoshop...';
+
+                try {
+                    console.log("🔍 About to generate thumbnails with sessionId:", sessionId);
+                    const requestBody = { session_id: sessionId };
+                    console.log("📤 Sending to /generate-thumbnails:", requestBody);
+
+                    const response = await fetch('/generate-thumbnails', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const result = await response.json();
+                    console.log("📥 Received response from /generate-thumbnails:", result);
+
+                    if (result.success) {
+                        console.log('✅ Thumbnails generated:', result.thumbnails);
+                        console.log('📋 Backend returned keys:', Object.keys(result.thumbnails));
+                        console.log('📋 Frontend expects keys:', Object.keys(psdLayerPreviews));
+
+                        // Check for key mismatches
+                        const backendKeys = Object.keys(result.thumbnails);
+                        const frontendKeys = Object.keys(psdLayerPreviews);
+                        const matches = backendKeys.filter(k => frontendKeys.includes(k));
+                        const mismatches = backendKeys.filter(k => !frontendKeys.includes(k));
+
+                        console.log(`✓ ${matches.length} matching keys:`, matches);
+                        if (mismatches.length > 0) {
+                            console.warn(`⚠️ ${mismatches.length} non-matching keys:`, mismatches);
+                        }
+
+                        // Update preview URLs with real thumbnails
+                        updateLayerPreviews(result.thumbnails);
+
+                        // Re-render the interface to show the updated thumbnails
+                        displayVisualMappingInterface();
+
+                        statusEl.textContent = `✅ Generated ${Object.keys(result.thumbnails).length} layer previews`;
+                        statusEl.className = 'status-message status-success';
+                    } else {
+                        console.warn('Thumbnail generation failed, using placeholders');
+                        statusEl.textContent = '⚠️ Using placeholder previews (thumbnail generation unavailable)';
+                        statusEl.className = 'status-message status-warning';
+                    }
+                } catch (thumbnailError) {
+                    console.warn('Thumbnail generation error:', thumbnailError);
+                    statusEl.textContent = '⚠️ Using placeholder previews';
+                    statusEl.className = 'status-message status-warning';
+                }
 
                 // Hide load button after successful load
                 setTimeout(() => {
                     loadBtn.style.display = 'none';
-                }, 2000);
+                }, 3000);
 
             } catch (error) {
                 statusEl.textContent = `❌ ${error.message}`;
                 statusEl.className = 'status-message status-error';
                 loadBtn.disabled = false;
             }
+        }
+
+        function updateLayerPreviews(thumbnails) {
+            // Update PSD layer previews with real thumbnails
+            console.log(`Updating ${Object.keys(thumbnails).length} layer previews...`);
+
+            for (const [layerName, thumbUrl] of Object.entries(thumbnails)) {
+                console.log(`  - ${layerName}: ${thumbUrl}`);
+
+                // Update in preview data
+                if (psdLayerPreviews.hasOwnProperty(layerName)) {
+                    psdLayerPreviews[layerName] = thumbUrl;
+                    console.log(`    ✓ Updated preview data for ${layerName}`);
+                } else {
+                    console.warn(`    ⚠️ Layer not found in psdLayerPreviews: ${layerName}`);
+                }
+
+                // Update rendered preview images in DOM
+                const previewImg = document.querySelector(`[data-layer-preview="${layerName}"]`);
+                if (previewImg) {
+                    previewImg.src = thumbUrl;
+                    previewImg.classList.remove('placeholder');
+                    previewImg.classList.add('loaded');
+                    console.log(`    ✓ Updated DOM image for ${layerName}`);
+                } else {
+                    console.warn(`    ⚠️ DOM image not found for ${layerName}`);
+                }
+            }
+
+            // Update AEPX placeholder thumbnails based on current mappings
+            console.log('Updating AEPX placeholder thumbnails based on mappings...');
+            for (const mapping of currentMappings) {
+                const thumbnailUrl = thumbnails[mapping.psd_layer];
+                if (thumbnailUrl) {
+                    const placeholderImg = document.querySelector(
+                        `[data-placeholder-preview="${mapping.aepx_placeholder}"]`
+                    );
+                    if (placeholderImg) {
+                        placeholderImg.src = thumbnailUrl;
+                        placeholderImg.classList.remove('placeholder');
+                        placeholderImg.classList.add('loaded');
+                        console.log(`    ✓ Updated AEPX placeholder "${mapping.aepx_placeholder}" with thumbnail from "${mapping.psd_layer}"`);
+                    } else {
+                        console.warn(`    ⚠️ AEPX placeholder image not found for ${mapping.aepx_placeholder}`);
+                    }
+                }
+            }
+
+            console.log('✅ Preview update complete');
         }
 
         function displayVisualMappingInterface() {
@@ -597,17 +860,31 @@
             // Show container
             container.style.display = 'grid';
 
+            // DIAGNOSTIC LOGGING
+            console.log('='.repeat(70));
+            console.log('DISPLAY VISUAL MAPPING INTERFACE');
+            console.log('='.repeat(70));
+            console.log('📦 allPsdLayers:', allPsdLayers);
+            console.log('📦 allPlaceholders:', allPlaceholders);
+            console.log('🔗 currentMappings:', currentMappings);
+            console.log('='.repeat(70));
+
             // Render PSD layers
             psdGrid.innerHTML = '';
             allPsdLayers.forEach(layerName => {
                 const previewUrl = psdLayerPreviews[layerName];
                 const isMapped = currentMappings.some(m => m.psd_layer === layerName);
 
+                // Check if this is a real thumbnail or placeholder
+                const isPlaceholder = !previewUrl || previewUrl.startsWith('data:image/svg+xml');
+                const imageClass = isPlaceholder ? 'preview-image placeholder' : 'preview-image loaded';
+
                 const item = document.createElement('div');
                 item.className = `preview-item ${isMapped ? 'mapped' : ''}`;
                 item.dataset.layerName = layerName;
                 item.innerHTML = `
-                    <img src="${previewUrl}" alt="${layerName}" class="preview-image"
+                    <img src="${previewUrl}" alt="${layerName}" class="${imageClass}"
+                         data-layer-preview="${layerName}"
                          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>?</text></svg>'">
                     <div class="preview-name">${layerName}</div>
                     <div class="preview-type">PSD Layer</div>
@@ -620,14 +897,29 @@
             // Render AEPX placeholders
             aepxGrid.innerHTML = '';
             allPlaceholders.forEach(placeholderName => {
-                const previewUrl = aepxPlaceholderPreviews[placeholderName];
-                const isMapped = currentMappings.some(m => m.aepx_placeholder === placeholderName);
+                // Check if this placeholder is mapped to a PSD layer
+                const mapping = currentMappings.find(m => m.aepx_placeholder === placeholderName);
+                const isMapped = !!mapping;
+
+                // If mapped, use the PSD layer's thumbnail; otherwise use placeholder preview
+                let previewUrl;
+                if (mapping && mapping.psd_layer && psdLayerPreviews[mapping.psd_layer]) {
+                    previewUrl = psdLayerPreviews[mapping.psd_layer];
+                    console.log(`Placeholder "${placeholderName}" mapped to "${mapping.psd_layer}", using its thumbnail`);
+                } else {
+                    previewUrl = aepxPlaceholderPreviews[placeholderName] || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%23999">No Preview</text></svg>';
+                }
+
+                // Check if this is a real thumbnail or placeholder
+                const isPlaceholder = !previewUrl || previewUrl.startsWith('data:image/svg+xml');
+                const imageClass = isPlaceholder ? 'preview-image placeholder' : 'preview-image loaded';
 
                 const item = document.createElement('div');
                 item.className = `preview-item ${isMapped ? 'mapped' : ''}`;
                 item.dataset.placeholderName = placeholderName;
                 item.innerHTML = `
-                    <img src="${previewUrl}" alt="${placeholderName}" class="preview-image"
+                    <img src="${previewUrl}" alt="${placeholderName}" class="${imageClass}"
+                         data-placeholder-preview="${placeholderName}"
                          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>?</text></svg>'">
                     <div class="preview-name">${placeholderName}</div>
                     <div class="preview-type">AEPX Placeholder</div>
@@ -636,6 +928,47 @@
                 item.addEventListener('click', () => selectAepxPlaceholder(placeholderName));
                 aepxGrid.appendChild(item);
             });
+
+            // Add "Additional Layers" section for unmapped PSD layers
+            const mappedPsdLayers = new Set(currentMappings.map(m => m.psd_layer));
+            const unmappedLayers = allPsdLayers.filter(layer => !mappedPsdLayers.has(layer));
+
+            if (unmappedLayers.length > 0) {
+                // Add section header
+                const sectionHeader = document.createElement('div');
+                sectionHeader.className = 'additional-layers-header';
+                sectionHeader.innerHTML = `
+                    <h4 style="margin: 20px 0 10px 0; padding: 10px; background: #e3f2fd; border-radius: 6px; color: #1976d2;">
+                        📋 Additional Layers (${unmappedLayers.length})
+                        <span style="font-size: 12px; font-weight: normal; color: #666; display: block; margin-top: 5px;">
+                            These layers will be added to the composition
+                        </span>
+                    </h4>
+                `;
+                aepxGrid.appendChild(sectionHeader);
+
+                // Render each unmapped layer
+                unmappedLayers.forEach(layerName => {
+                    const previewUrl = psdLayerPreviews[layerName] || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="%23e3f2fd"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="14" fill="%231976d2">Additional Layer</text></svg>';
+                    const isPlaceholder = !psdLayerPreviews[layerName] || previewUrl.startsWith('data:image/svg+xml');
+                    const imageClass = isPlaceholder ? 'preview-image placeholder' : 'preview-image loaded';
+
+                    const item = document.createElement('div');
+                    item.className = 'preview-item additional-layer';
+                    item.dataset.layerName = layerName;
+                    item.innerHTML = `
+                        <img src="${previewUrl}" alt="${layerName}" class="${imageClass}"
+                             data-layer-preview="${layerName}"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>?</text></svg>'">
+                        <div class="preview-name">${layerName}</div>
+                        <div class="preview-type" style="background: #1976d2; color: white;">Will be added as layer</div>
+                    `;
+
+                    aepxGrid.appendChild(item);
+                });
+
+                console.log(`📋 Added ${unmappedLayers.length} additional unmapped layers to display`);
+            }
 
             // Update mappings list
             updateVisualMappingsList();
@@ -728,18 +1061,33 @@
             // Update stats
             const mappedPsdCount = new Set(currentMappings.map(m => m.psd_layer)).size;
             const mappedPlaceholdersCount = new Set(currentMappings.map(m => m.aepx_placeholder)).size;
-            const unmappedPsdCount = allPsdLayers.length - mappedPsdCount;
+            const additionalLayersCount = allPsdLayers.length - mappedPsdCount;
             const unmappedPlaceholdersCount = allPlaceholders.length - mappedPlaceholdersCount;
 
+            // Determine if all layers are handled
+            const allLayersHandled = (mappedPsdCount + additionalLayersCount) === allPsdLayers.length;
+
             statsEl.innerHTML = `
-                <div class="stat-item">
-                    <span class="stat-number">${currentMappings.length}</span> Total Mappings
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">${unmappedPsdCount}</span> Unmapped Layers
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number">${unmappedPlaceholdersCount}</span> Unfilled Placeholders
+                <p class="info-text" style="margin-bottom: 15px; padding: 12px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px; color: #2e7d32; font-size: 14px;">
+                    ${allLayersHandled ? '✅' : '⚠️'} All ${allPsdLayers.length} PSD layers are handled: ${mappedPsdCount} will replace placeholders${additionalLayersCount > 0 ? `, ${additionalLayersCount} will be added as additional layers` : ''}.
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div class="stat-item success">
+                        <div class="stat-number">${allPsdLayers.length}</div>
+                        <div class="stat-label">Total Layers</div>
+                    </div>
+                    <div class="stat-item success">
+                        <div class="stat-number">${mappedPsdCount}</div>
+                        <div class="stat-label">Mapped to Placeholders</div>
+                    </div>
+                    <div class="stat-item info">
+                        <div class="stat-number">${additionalLayersCount}</div>
+                        <div class="stat-label">Added as Layers</div>
+                    </div>
+                    <div class="stat-item ${unmappedPlaceholdersCount === 0 ? 'success' : 'warning'}">
+                        <div class="stat-number">${unmappedPlaceholdersCount}</div>
+                        <div class="stat-label">Unfilled Placeholders</div>
+                    </div>
                 </div>
             `;
         }
@@ -846,11 +1194,18 @@
             const selectedOption = document.querySelector(`input[name="resolution_${conflictId}"]:checked`);
 
             if (!selectedOption) {
-                alert('Please select a resolution option');
+                showNotification('error', 'Please select a resolution option');
                 return;
             }
 
             const resolutionId = selectedOption.value;
+
+            // Disable button and show loading state
+            const conflictCard = document.querySelector(`[data-conflict-id="${conflictId}"]`);
+            const applyBtn = conflictCard.querySelector('.apply-resolution-btn');
+            const originalText = applyBtn.textContent;
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Applying...';
 
             try {
                 const response = await fetch('/apply-resolution', {
@@ -866,22 +1221,100 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert(result.message);
                     // Mark conflict as resolved in UI
-                    const conflictCard = document.querySelector(`[data-conflict-id="${conflictId}"]`);
                     conflictCard.classList.add('resolved');
-                    conflictCard.querySelector('.apply-resolution-btn').textContent = '✓ Resolved';
-                    conflictCard.querySelector('.apply-resolution-btn').disabled = true;
+                    applyBtn.textContent = '✓ Resolved';
+                    applyBtn.disabled = true;
+
                     // Disable radio buttons
                     conflictCard.querySelectorAll('input[type="radio"]').forEach(input => {
                         input.disabled = true;
                     });
+
+                    showNotification('success', result.message || 'Resolution applied successfully');
+
+                    // Update conflict counts if function exists
+                    if (typeof updateConflictCounts === 'function') {
+                        updateConflictCounts();
+                    }
                 } else {
-                    alert('Resolution failed: ' + result.message);
+                    // Re-enable button on failure
+                    applyBtn.disabled = false;
+                    applyBtn.textContent = originalText;
+                    showNotification('error', result.message || 'Failed to apply resolution');
                 }
             } catch (error) {
-                alert('Error applying resolution: ' + error.message);
+                // Re-enable button on error
+                applyBtn.disabled = false;
+                applyBtn.textContent = originalText;
+                showNotification('error', 'Error applying resolution: ' + error.message);
             }
+        }
+
+        // Toast notification system
+        function showNotification(type, message) {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 10000;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                `;
+                document.body.appendChild(toastContainer);
+            }
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+
+            // Icon based on type
+            const icons = {
+                success: '✓',
+                error: '✗',
+                info: 'ℹ',
+                warning: '⚠'
+            };
+            const icon = icons[type] || 'ℹ';
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            toast.style.cssText = `
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 250px;
+                max-width: 400px;
+                animation: slideIn 0.3s ease-out;
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    toast.remove();
+                    // Remove container if empty
+                    if (toastContainer.children.length === 0) {
+                        toastContainer.remove();
+                    }
+                }, 300);
+            }, 3000);
         }
 
         // Generate script
@@ -923,6 +1356,16 @@
             downloadLink.href = data.download_url;
             downloadLink.download = data.filename;
             document.getElementById('downloadSection').style.display = 'block';
+
+            // Show validation section
+            document.getElementById('validationSection').style.display = 'block';
+            document.getElementById('validationSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Show preview & sign-off section
+            const previewSection = document.getElementById('previewSignoffSection');
+            if (previewSection) {
+                previewSection.style.display = 'block';
+            }
         }
 
         // Generate preview
@@ -1029,6 +1472,10 @@
         document.getElementById('skipPreviewBtn').addEventListener('click', skipPreview);
         document.getElementById('proceedToGenerateBtn').addEventListener('click', proceedToGenerate);
         generateBtn.addEventListener('click', generateScript);
+        document.getElementById('validatePlainlyBtn').addEventListener('click', validatePlainly);
+        document.getElementById('skipValidationBtn').addEventListener('click', skipValidation);
+        document.getElementById('downloadReportBtn').addEventListener('click', downloadValidationReport);
+        document.getElementById('fixAllBtn').addEventListener('click', applyAutoFixes);
 
         // Preview mapping function
         async function previewMapping(psdLayer, aepxPlaceholder) {
@@ -1078,6 +1525,447 @@
 
         function closeMappingPreviewModal() {
             document.getElementById('mappingPreviewModal').style.display = 'none';
+        }
+
+        // Plainly Validation Functions
+        async function validatePlainly() {
+            const validateBtn = document.getElementById('validatePlainlyBtn');
+            const skipBtn = document.getElementById('skipValidationBtn');
+
+            validateBtn.disabled = true;
+            skipBtn.disabled = true;
+            validateBtn.textContent = '🔍 Validating...';
+            showStatus('validationStatus', 'Validating for Plainly compatibility...', 'info');
+
+            try {
+                const response = await fetch('/validate-plainly', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('validationStatus', result.message, 'success');
+                    displayValidationReport(result.validation);
+                } else {
+                    showStatus('validationStatus', result.message, 'error');
+                    validateBtn.disabled = false;
+                    skipBtn.disabled = false;
+                    validateBtn.textContent = '🔍 Validate for Plainly';
+                }
+            } catch (error) {
+                showStatus('validationStatus', `Validation error: ${error.message}`, 'error');
+                validateBtn.disabled = false;
+                skipBtn.disabled = false;
+                validateBtn.textContent = '🔍 Validate for Plainly';
+            }
+        }
+
+        function displayValidationReport(validation) {
+            const reportEl = document.getElementById('validationReport');
+            const scoreNumberEl = document.getElementById('scoreNumber');
+            const scoreGradeEl = document.getElementById('scoreGrade');
+            const scoreMessageEl = document.getElementById('scoreMessage');
+            const summaryEl = document.getElementById('validationSummary');
+
+            // Show report
+            reportEl.style.display = 'block';
+
+            // Display score
+            scoreNumberEl.textContent = Math.round(validation.score);
+            scoreGradeEl.textContent = validation.grade;
+            scoreMessageEl.textContent = validation.status_message;
+
+            // Color code based on grade
+            const scoreCard = document.getElementById('validationScoreCard');
+            scoreCard.className = 'validation-score-card';
+            if (validation.grade === 'A' || validation.grade === 'B') {
+                scoreCard.classList.add('grade-good');
+            } else if (validation.grade === 'C' || validation.grade === 'D') {
+                scoreCard.classList.add('grade-warning');
+            } else {
+                scoreCard.classList.add('grade-critical');
+            }
+
+            // Display summary
+            const summary = validation.summary;
+            summaryEl.innerHTML = `
+                <div class="summary-stat">
+                    <span class="stat-label">Total Issues:</span>
+                    <span class="stat-value">${summary.total_issues}</span>
+                </div>
+                <div class="summary-stat critical">
+                    <span class="stat-label">Critical:</span>
+                    <span class="stat-value">${summary.critical}</span>
+                </div>
+                <div class="summary-stat warning">
+                    <span class="stat-label">Warnings:</span>
+                    <span class="stat-value">${summary.warnings}</span>
+                </div>
+                <div class="summary-stat info">
+                    <span class="stat-label">Recommendations:</span>
+                    <span class="stat-value">${summary.info}</span>
+                </div>
+            `;
+
+            // Check for fixable issues
+            const fixableIssues = getFixableIssues(validation.issues);
+            const autoFixSection = document.getElementById('autoFixSection');
+            const autoFixCount = document.getElementById('autoFixCount');
+
+            if (fixableIssues.length > 0) {
+                autoFixSection.style.display = 'block';
+                autoFixCount.textContent = `${fixableIssues.length} issue${fixableIssues.length > 1 ? 's' : ''} can be automatically fixed`;
+            } else {
+                autoFixSection.style.display = 'none';
+            }
+
+            // Display issues by severity
+            displayIssuesByCategory(validation.issues);
+
+            // Show/hide deploy button based on readiness
+            const deployBtn = document.getElementById('deployToPlainlyBtn');
+            if (validation.plainly_ready) {
+                deployBtn.style.display = 'inline-block';
+            } else {
+                deployBtn.style.display = 'none';
+            }
+        }
+
+        function getFixableIssues(issues) {
+            // Issues that can be auto-fixed:
+            // - category: 'characters' (non-English characters)
+            // - category: 'naming' with 'prefix' in message (missing prefixes)
+            // - category: 'composition' with 'No render composition' message
+            return issues.filter(issue => {
+                if (issue.category === 'characters') return true;
+                if (issue.category === 'naming' && issue.message.toLowerCase().includes('prefix')) return true;
+                if (issue.category === 'composition' && issue.message.includes('No render composition')) return true;
+                return false;
+            });
+        }
+
+        function displayIssuesByCategory(issues) {
+            const criticalList = document.getElementById('criticalIssuesList');
+            const warningList = document.getElementById('warningIssuesList');
+            const infoList = document.getElementById('infoIssuesList');
+
+            const criticalSection = document.getElementById('criticalIssues');
+            const warningSection = document.getElementById('warningIssues');
+            const infoSection = document.getElementById('infoIssues');
+
+            // Filter issues by severity
+            const criticalIssues = issues.filter(i => i.severity === 'critical');
+            const warningIssues = issues.filter(i => i.severity === 'warning');
+            const infoIssues = issues.filter(i => i.severity === 'info');
+
+            // Display critical issues
+            if (criticalIssues.length > 0) {
+                criticalSection.style.display = 'block';
+                criticalList.innerHTML = criticalIssues.map(issue => `
+                    <div class="issue-item critical">
+                        <div class="issue-title">${issue.message}</div>
+                        <div class="issue-details">${issue.details}</div>
+                        <div class="issue-fix">💡 Fix: ${issue.fix_suggestion}</div>
+                        ${issue.layer_name ? `<div class="issue-location">Layer: ${issue.layer_name}</div>` : ''}
+                        ${issue.composition_name ? `<div class="issue-location">Comp: ${issue.composition_name}</div>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                criticalSection.style.display = 'none';
+            }
+
+            // Display warnings
+            if (warningIssues.length > 0) {
+                warningSection.style.display = 'block';
+                warningList.innerHTML = warningIssues.map(issue => `
+                    <div class="issue-item warning">
+                        <div class="issue-title">${issue.message}</div>
+                        <div class="issue-details">${issue.details}</div>
+                        <div class="issue-fix">💡 Fix: ${issue.fix_suggestion}</div>
+                        ${issue.layer_name ? `<div class="issue-location">Layer: ${issue.layer_name}</div>` : ''}
+                        ${issue.composition_name ? `<div class="issue-location">Comp: ${issue.composition_name}</div>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                warningSection.style.display = 'none';
+            }
+
+            // Display info/recommendations
+            if (infoIssues.length > 0) {
+                infoSection.style.display = 'block';
+                infoList.innerHTML = infoIssues.map(issue => `
+                    <div class="issue-item info">
+                        <div class="issue-title">${issue.message}</div>
+                        <div class="issue-details">${issue.details}</div>
+                        <div class="issue-fix">💡 Suggestion: ${issue.fix_suggestion}</div>
+                        ${issue.layer_name ? `<div class="issue-location">Layer: ${issue.layer_name}</div>` : ''}
+                        ${issue.composition_name ? `<div class="issue-location">Comp: ${issue.composition_name}</div>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                infoSection.style.display = 'none';
+            }
+        }
+
+        async function applyAutoFixes() {
+            const fixAllBtn = document.getElementById('fixAllBtn');
+            const fixProgress = document.getElementById('fixProgress');
+
+            fixAllBtn.disabled = true;
+            fixAllBtn.textContent = '🔧 Applying Fixes...';
+            fixProgress.style.display = 'block';
+            fixProgress.innerHTML = '<div class="status-message info">🔧 Applying automatic fixes...</div>';
+
+            try {
+                const response = await fetch('/apply-plainly-fixes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Show success message with changes
+                    let changesList = '<div class="fix-results">';
+                    changesList += `<div class="success-banner">✅ Fixed ${result.fix_result.fixed_count} issues!</div>`;
+                    changesList += '<ul class="changes-list">';
+
+                    for (const change of result.fix_result.changes) {
+                        changesList += `<li class="change-item">`;
+                        changesList += `<strong>${change.type.replace(/_/g, ' ')}:</strong> `;
+                        changesList += `<span class="old-value">${change.old_name}</span> `;
+                        changesList += `→ <span class="new-value">${change.new_name}</span>`;
+                        changesList += `</li>`;
+                    }
+
+                    changesList += '</ul></div>';
+                    fixProgress.innerHTML = changesList;
+
+                    // Update validation report with new results
+                    if (result.validation) {
+                        displayValidationReport(result.validation);
+                    }
+
+                    // Re-enable button with new text
+                    fixAllBtn.textContent = '✅ Fixes Applied!';
+                    fixAllBtn.disabled = true;
+
+                    // Scroll to show updated results
+                    setTimeout(() => {
+                        document.getElementById('validationScoreCard').scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }, 500);
+                } else {
+                    fixProgress.innerHTML = `<div class="status-message error">❌ ${result.message}</div>`;
+                    fixAllBtn.disabled = false;
+                    fixAllBtn.textContent = '🔧 Fix All Issues';
+                }
+            } catch (error) {
+                fixProgress.innerHTML = `<div class="status-message error">❌ Error: ${error.message}</div>`;
+                fixAllBtn.disabled = false;
+                fixAllBtn.textContent = '🔧 Fix All Issues';
+            }
+        }
+
+        function skipValidation() {
+            console.log('Validation skipped by user');
+            showStatus('validationStatus', 'Validation skipped. Proceeding without Plainly validation.', 'info');
+            // Could add logic to proceed to next step if needed
+        }
+
+        function downloadValidationReport() {
+            // Create a text report from the current validation data
+            const reportText = generateReportText();
+            const blob = new Blob([reportText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `plainly-validation-report-${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function generateReportText() {
+            const scoreNumber = document.getElementById('scoreNumber').textContent;
+            const scoreGrade = document.getElementById('scoreGrade').textContent;
+            const scoreMessage = document.getElementById('scoreMessage').textContent;
+
+            let report = `PLAINLY VALIDATION REPORT\n`;
+            report += `Generated: ${new Date().toLocaleString()}\n`;
+            report += `${'='.repeat(70)}\n\n`;
+            report += `OVERALL SCORE: ${scoreNumber}/100 (Grade: ${scoreGrade})\n`;
+            report += `Status: ${scoreMessage}\n\n`;
+
+            // Add issues
+            const criticalIssues = document.querySelectorAll('.critical-issues .issue-item');
+            const warningIssues = document.querySelectorAll('.warning-issues .issue-item');
+            const infoIssues = document.querySelectorAll('.info-issues .issue-item');
+
+            if (criticalIssues.length > 0) {
+                report += `\nCRITICAL ISSUES (${criticalIssues.length}):\n${'='.repeat(70)}\n`;
+                criticalIssues.forEach((item, i) => {
+                    report += `\n${i + 1}. ${item.querySelector('.issue-title').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-details').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-fix').textContent}\n`;
+                });
+            }
+
+            if (warningIssues.length > 0) {
+                report += `\n\nWARNINGS (${warningIssues.length}):\n${'='.repeat(70)}\n`;
+                warningIssues.forEach((item, i) => {
+                    report += `\n${i + 1}. ${item.querySelector('.issue-title').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-details').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-fix').textContent}\n`;
+                });
+            }
+
+            if (infoIssues.length > 0) {
+                report += `\n\nRECOMMENDATIONS (${infoIssues.length}):\n${'='.repeat(70)}\n`;
+                infoIssues.forEach((item, i) => {
+                    report += `\n${i + 1}. ${item.querySelector('.issue-title').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-details').textContent}\n`;
+                    report += `   ${item.querySelector('.issue-fix').textContent}\n`;
+                });
+            }
+
+            report += `\n${'='.repeat(70)}\n`;
+            report += `END OF REPORT\n`;
+
+            return report;
+        }
+
+        // ========================================================================
+        // PREVIEW & SIGN-OFF WORKFLOW
+        // ========================================================================
+
+        // Preview & Sign-off Workflow
+        const workflowSettings = {
+            validateBeforePreview: {{ 'true' if VALIDATE_BEFORE_PREVIEW else 'false' }},
+            requireSignoff: {{ 'true' if REQUIRE_SIGNOFF_FOR_RENDER else 'false' }}
+        };
+
+        // Event listeners
+        document.getElementById('generatePreviewsBtn')?.addEventListener('click', generatePreviews);
+        document.getElementById('regeneratePsdBtn')?.addEventListener('click', generatePreviews);
+        document.getElementById('regenerateAeBtn')?.addEventListener('click', generatePreviews);
+        document.getElementById('approveBtn')?.addEventListener('click', approveSignoff);
+        document.getElementById('signoffCheckbox')?.addEventListener('change', updateApproveButton);
+
+        async function generatePreviews() {
+            const btn = document.getElementById('generatePreviewsBtn');
+            const status = document.getElementById('previewGenStatus');
+
+            btn.disabled = true;
+            btn.textContent = '🎬 Generating Previews...';
+            status.innerHTML = '<div class="status-message info">Generating side-by-side previews...</div>';
+
+            try {
+                const response = await fetch('/previews/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    status.innerHTML = '<div class="status-message success">✅ Previews generated!</div>';
+
+                    // Show preview container
+                    const container = document.getElementById('previewContainer');
+                    container.style.display = 'grid';
+
+                    // Load images/videos
+                    document.getElementById('psdPreviewImg').src = result.preview.psd_png_url;
+                    document.getElementById('aePreviewVideo').src = result.preview.ae_mp4_url;
+
+                    // Show sign-off card
+                    document.getElementById('signoffCard').style.display = 'block';
+
+                    // Update validation strip if validation exists
+                    updateValidationStrip();
+
+                    btn.textContent = '✅ Previews Ready';
+                } else {
+                    status.innerHTML = `<div class="status-message error">❌ ${result.error}</div>`;
+                    btn.disabled = false;
+                    btn.textContent = '🎬 Generate Side-by-Side Previews';
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="status-message error">❌ Error: ${error.message}</div>`;
+                btn.disabled = false;
+                btn.textContent = '🎬 Generate Side-by-Side Previews';
+            }
+        }
+
+        async function approveSignoff() {
+            const btn = document.getElementById('approveBtn');
+            const status = document.getElementById('signoffStatus');
+            const notes = document.getElementById('signoffNotes').value;
+
+            btn.disabled = true;
+            btn.textContent = '✅ Approving...';
+            status.innerHTML = '<div class="status-message info">Processing sign-off...</div>';
+
+            try {
+                const response = await fetch('/signoff/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        notes: notes,
+                        user: 'current_user'  // Replace with actual user from auth
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    status.innerHTML = '<div class="status-message success">✅ Approved! Final render started.</div>';
+                    btn.textContent = '✅ Approved';
+                    document.getElementById('signoffCheckbox').disabled = true;
+                    document.getElementById('signoffNotes').disabled = true;
+                } else {
+                    status.innerHTML = `<div class="status-message error">❌ ${result.error}</div>`;
+                    btn.disabled = false;
+                    btn.textContent = '✅ Approve & Start Final Render';
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="status-message error">❌ Error: ${error.message}</div>`;
+                btn.disabled = false;
+                btn.textContent = '✅ Approve & Start Final Render';
+            }
+        }
+
+        function updateApproveButton() {
+            const approve = document.getElementById('approveBtn');
+            const checkbox = document.getElementById('signoffCheckbox');
+
+            // Enable only if checked
+            approve.disabled = !checkbox.checked;
+        }
+
+        function updateValidationStrip() {
+            const strip = document.getElementById('validationStrip');
+            const badge = document.getElementById('validationBadge');
+
+            // Check if validation report is visible
+            const validationReport = document.getElementById('validationReport');
+            if (validationReport && validationReport.style.display !== 'none') {
+                strip.style.display = 'flex';
+                const grade = document.getElementById('scoreGrade').textContent;
+                const score = document.getElementById('scoreNumber').textContent;
+                badge.textContent = `${grade} (${score}%)`;
+                badge.className = grade === 'A' || grade === 'B' ? 'badge badge-ok' : 'badge badge-warn';
+            }
         }
     </script>
 

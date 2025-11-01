@@ -20,6 +20,7 @@ from services.export_service import ExportService
 from services.expression_applier_service import ExpressionApplierService
 from services.recovery_service import RecoveryService
 from services.validation_service import ValidationService
+from services.plainly_validator_service import PlainlyValidatorService
 from modules.aep_converter import AEPConverter
 from modules.expression_system import (
     ExpressionGenerator,
@@ -199,6 +200,12 @@ class ServiceContainer:
         # Validation Service (file validation before processing)
         self.validation_service = ValidationService(
             logger=get_service_logger('validation'),
+            enhanced_logging=self.enhanced_logging
+        )
+
+        # Plainly Validator Service (Plainly compatibility validation)
+        self.plainly_validator_service = PlainlyValidatorService(
+            logger=get_service_logger('plainly_validator'),
             enhanced_logging=self.enhanced_logging
         )
 

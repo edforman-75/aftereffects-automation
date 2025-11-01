@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 2: Layer Matching Review</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stage2_review.css') }}">
+</head>
+<body>
+    <div class="review-container">
+        <!-- Header -->
+        <header class="review-header">
+            <div class="header-left">
+                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+                <h1>Stage 2: Layer Matching Review</h1>
+            </div>
+            <div class="header-right">
+                <span class="job-id-display" id="job-id-display">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Job Info Bar -->
+        <div class="job-info-bar" id="job-info-bar">
+            <div class="info-item">
+                <span class="info-label">Client:</span>
+                <span class="info-value" id="client-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Project:</span>
+                <span class="info-value" id="project-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">PSD File:</span>
+                <span class="info-value" id="psd-filename">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">AEPX Template:</span>
+                <span class="info-value" id="aepx-filename">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Matches:</span>
+                <span class="info-value">
+                    <span id="matched-count">0</span> / <span id="total-psd-layers">0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions-panel">
+            <h3>Instructions</h3>
+            <p>Review the automatic layer matching below. Each PSD layer has been matched to an After Effects layer. You can:</p>
+            <ul>
+                <li><strong>Accept</strong> the automatic match if it looks correct</li>
+                <li><strong>Change</strong> the AE layer by selecting a different one from the dropdown</li>
+                <li><strong>Skip</strong> a PSD layer if it should not be replaced</li>
+            </ul>
+            <p>When satisfied with all matches, click <strong>Approve & Continue to Stage 3</strong> at the bottom.</p>
+        </div>
+
+        <!-- Matching Table -->
+        <div class="matching-section">
+            <div class="section-header">
+                <h2>Layer Matching</h2>
+                <div class="filter-controls">
+                    <label>
+                        <input type="checkbox" id="filter-unmatched" />
+                        Show only unmatched
+                    </label>
+                    <label>
+                        <input type="checkbox" id="filter-low-confidence" />
+                        Show only low confidence (&lt;70%)
+                    </label>
+                </div>
+            </div>
+
+            <div class="matching-table-container">
+                <table class="matching-table">
+                    <thead>
+                        <tr>
+                            <th width="5%">#</th>
+                            <th width="15%">PSD Layer</th>
+                            <th width="27%">Preview</th>
+                            <th width="3%">→</th>
+                            <th width="15%">After Effects Layer</th>
+                            <th width="27%">Preview</th>
+                            <th width="8%">Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matching-table-body">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-left">
+                <button class="btn btn-secondary" onclick="cancelReview()">
+                    ← Cancel
+                </button>
+                <button class="btn btn-secondary" id="reset-button" onclick="resetMatching()">
+                    Reset to Auto-Match
+                </button>
+            </div>
+            <div class="action-right">
+                <button class="btn btn-primary btn-lg" id="save-next-button" onclick="saveAndNext()">
+                    Save & Next Job →
+                </button>
+                <button class="btn btn-secondary" id="save-dashboard-button" onclick="saveAndDashboard()">
+                    Save & Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Match Modal -->
+    <div class="modal" id="change-match-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change AE Layer Match</h3>
+                <span class="modal-close" onclick="closeChangeMatchModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>
+                    <strong>PSD Layer:</strong>
+                    <span id="modal-psd-layer-name">-</span>
+                </p>
+                <p>
+                    <strong>Current Match:</strong>
+                    <span id="modal-current-match">-</span>
+                </p>
+                <hr>
+                <label for="modal-ae-layer-select">Select new AE layer:</label>
+                <select id="modal-ae-layer-select" class="form-select">
+                    <!-- Populated by JavaScript -->
+                </select>
+                <p class="help-text">You can also choose "No Match" to skip this PSD layer.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeChangeMatchModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmChangeMatch()">Save Change</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading layer data...</p>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='js/stage2_review.js') }}"></script>
+</body>
+</html>

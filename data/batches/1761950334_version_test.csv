@@ -1,0 +1,2 @@
+job_id,psd_path,aepx_path,output_name,client_name,project_name,priority,notes
+VERSION_TEST,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,version_test_output.aep,TestClient,VersionTest,medium,Testing PSD version handling

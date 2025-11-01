@@ -97,16 +97,30 @@ class Job(Base):
     stage2_completed_at = Column(DateTime)
     stage2_completed_by = Column(String(100))
 
-    # Stage 3: Approval (Human)
+    # Stage 3: Automatic Validation
     stage3_started_at = Column(DateTime)
     stage3_completed_at = Column(DateTime)
-    stage3_completed_by = Column(String(100))
-    stage3_approved_with_warnings = Column(Boolean, default=False)
+    stage3_completed_by = Column(String(100), default='system')
+    stage3_validation_results = Column(JSON)  # Validation report
 
-    # Stage 4: Deployment
+    # Stage 4: Validation Review (conditional - only if critical issues)
     stage4_started_at = Column(DateTime)
     stage4_completed_at = Column(DateTime)
     stage4_completed_by = Column(String(100))
+    stage4_override = Column(Boolean, default=False)
+    stage4_override_reason = Column(Text)  # Override justification
+
+    # Stage 5: ExtendScript Generation
+    stage5_started_at = Column(DateTime)
+    stage5_completed_at = Column(DateTime)
+    stage5_completed_by = Column(String(100), default='system')
+    stage5_extendscript = Column(Text)  # Generated .jsx script
+
+    # Stage 6: Preview & Download
+    stage6_started_at = Column(DateTime)
+    stage6_completed_at = Column(DateTime)
+    stage6_completed_by = Column(String(100))
+    stage6_downloaded_at = Column(DateTime)  # When user downloaded
 
     # Audit Trail
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -116,9 +130,8 @@ class Job(Base):
     final_aep_path = Column(Text)
 
     # Processing Data (JSON)
-    stage1_results = Column(JSON)  # PSD/AEPX processing results
-    stage2_approved_matches = Column(JSON)  # Layer mappings approved by human
-    stage3_adjustments = Column(JSON)  # Scaling/positioning adjustments
+    stage1_results = Column(JSON)  # PSD/AEPX extraction results
+    stage2_approved_matches = Column(JSON)  # Approved layer matches
 
     # Relationships
     batch = relationship("Batch", back_populates="jobs")

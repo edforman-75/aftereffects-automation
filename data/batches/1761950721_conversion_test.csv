@@ -1,0 +1,2 @@
+job_id,psd_path,aepx_path,output_name,client_name,project_name,priority,notes
+CONVERT_TEST,/Users/edf/Downloads/test-photoshop-doc.psd,/Users/edf/Downloads/test-after-effects-project copy.aepx,convert_test_output.aep,TestClient,ConversionTest,high,Testing ImageMagick PSD conversion
