@@ -43,6 +43,8 @@ from database.models import Job
 from routes.core_routes import core_bp
 from routes.batch_routes import batch_bp
 from routes.job_routes import job_bp
+from routes.stage2_routes import stage2_bp
+from routes.stage4_routes import stage4_bp
 
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
@@ -3696,6 +3698,8 @@ match_validator = MatchValidationService(container.main_logger)
 app.register_blueprint(core_bp)
 app.register_blueprint(batch_bp)
 app.register_blueprint(job_bp)
+app.register_blueprint(stage2_bp)
+app.register_blueprint(stage4_bp)
 
 
 @app.route('/api/batch/upload', methods=['POST'])
