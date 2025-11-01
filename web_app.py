@@ -4311,50 +4311,42 @@ def get_validation_results(job_id: str):
     }
     """
     try:
-        conn = db_session()
-        cursor = conn.cursor()
+        session = db_session()
+        try:
+            # Use ORM to query job
+            job = session.query(Job).filter_by(job_id=job_id).first()
 
-        cursor.execute("""
-            SELECT
-                job_id,
-                client_name,
-                project_name,
-                stage3_validation_results,
-                stage3_completed_at,
-                stage2_results
-            FROM jobs
-            WHERE job_id = ?
-        """, (job_id,))
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': 'Job not found'
+                }), 404
 
-        row = cursor.fetchone()
-        if not row:
+            # JSON columns auto-deserialize, no need for json.loads()
+            validation_results = job.stage3_validation_results
+
+            # If no validation results exist, run validation now
+            if not validation_results:
+                container.main_logger.info(f"No validation results found for {job_id}, running validation...")
+                validation_results = match_validator.validate_job(job_id)
+                match_validator.save_validation_results(job_id, validation_results)
+
+            # Count total matches
+            stage2_data = job.stage2_results or {}
+            total_matches = len(stage2_data.get('approved_matches', []))
+
             return jsonify({
-                'success': False,
-                'error': 'Job not found'
-            }), 404
+                'success': True,
+                'job_id': job.job_id,
+                'client_name': job.client_name,
+                'project_name': job.project_name,
+                'validated_at': job.stage3_completed_at.isoformat() if job.stage3_completed_at else None,
+                'total_matches': total_matches,
+                'validation_results': validation_results
+            })
 
-        # Parse validation results
-        validation_results = json.loads(row[3]) if row[3] else None
-
-        # If no validation results exist, run validation now
-        if not validation_results:
-            container.main_logger.info(f"No validation results found for {job_id}, running validation...")
-            validation_results = match_validator.validate_job(job_id)
-            match_validator.save_validation_results(job_id, validation_results)
-
-        # Count total matches
-        stage2_data = json.loads(row[5]) if row[5] else {}
-        total_matches = len(stage2_data.get('approved_matches', []))
-
-        return jsonify({
-            'success': True,
-            'job_id': row[0],
-            'client_name': row[1],
-            'project_name': row[2],
-            'validated_at': row[4],
-            'total_matches': total_matches,
-            'validation_results': validation_results
-        })
+        finally:
+            session.close()
 
     except Exception as e:
         container.main_logger.error(f"Error getting validation results: {e}", exc_info=True)
@@ -4380,17 +4372,22 @@ def complete_validation(job_id: str):
 
         container.main_logger.info(f"Job {job_id}: Validation completed by {user_id}")
 
-        # Move to Stage 4
-        conn = db_session()
-        cursor = conn.cursor()
+        # Move to Stage 4 using ORM
+        session = db_session()
+        try:
+            job = session.query(Job).filter_by(job_id=job_id).first()
 
-        cursor.execute("""
-            UPDATE jobs
-            SET current_stage = 4
-            WHERE job_id = ?
-        """, (job_id,))
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': 'Job not found'
+                }), 404
 
-        conn.commit()
+            job.current_stage = 4
+            session.commit()
+
+        finally:
+            session.close()
 
         container.main_logger.info(f"Job {job_id}: Moved to Stage 4 after validation")
 
