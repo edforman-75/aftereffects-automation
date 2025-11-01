@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 6: Preview & Approval</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #2c3e50;
+        }
+
+        .back-link {
+            text-decoration: none;
+            color: #3498db;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .job-info {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            display: flex;
+            gap: 8px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #7f8c8d;
+        }
+
+        .info-value {
+            color: #2c3e50;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-awaiting_preview {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-awaiting_approval {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .instructions {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .instructions h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .instructions p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .comparison-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .comparison-header h2 {
+            font-size: 20px;
+            color: #2c3e50;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .preview-panel {
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .preview-header {
+            background: #34495e;
+            color: white;
+            padding: 12px 15px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .preview-content {
+            padding: 15px;
+            background: #fafafa;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .preview-video {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .action-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-body label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .modal-body textarea,
+        .modal-body select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .modal-body textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border-left: 4px solid #c3e6cb;
+        }
+
+        .generate-preview-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .generate-preview-section h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .generate-preview-section p {
+            margin-bottom: 20px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+                <h1>Stage 6: Preview & Approval</h1>
+            </div>
+            <div>
+                <span class="job-id-display" id="job-id-display">Job: {{ job_id }}</span>
+            </div>
+        </header>
+
+        <div class="job-info" id="job-info">
+            <div class="info-item">
+                <span class="info-label">Client:</span>
+                <span class="info-value" id="client-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Project:</span>
+                <span class="info-value" id="project-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Output:</span>
+                <span class="info-value" id="output-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="info-value">
+                    <span class="status-badge" id="status-badge">-</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>Review & Approve</h3>
+            <p>Compare the original PSD design (left) with the rendered After Effects output (right). If everything looks correct, approve to complete the job. If there are issues, you can reject and return to an earlier stage for corrections.</p>
+        </div>
+
+        <div id="loading-section" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Loading preview...</p>
+        </div>
+
+        <div id="generate-preview-section" class="generate-preview-section" style="display: none;">
+            <h3>Preview Not Generated</h3>
+            <p>Click the button below to generate the preview comparison.</p>
+            <button class="btn btn-primary" onclick="generatePreview()">Generate Preview</button>
+        </div>
+
+        <div id="comparison-section" style="display: none;">
+            <div class="comparison-container">
+                <div class="comparison-header">
+                    <h2>Side-by-Side Comparison</h2>
+                </div>
+                <div class="comparison-grid">
+                    <div class="preview-panel">
+                        <div class="preview-header">Original PSD Design</div>
+                        <div class="preview-content">
+                            <img id="psd-preview" class="preview-image" alt="PSD Preview">
+                        </div>
+                    </div>
+                    <div class="preview-panel">
+                        <div class="preview-header">After Effects Render</div>
+                        <div class="preview-content">
+                            <video id="video-preview" class="preview-video" controls>
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button class="btn btn-danger" onclick="showRejectModal()">
+                    Reject & Return to Editing
+                </button>
+                <button class="btn btn-primary" onclick="approvePreview()">
+                    Approve & Complete Job
+                </button>
+                <button id="archive-btn" class="btn btn-success" onclick="archiveJob()" style="display: none;">
+                    Archive Job
+                </button>
+            </div>
+
+            <div id="archive-success" class="success-message" style="display: none;">
+                <h3>Job Archived Successfully</h3>
+                <p>This job has been moved to the completed jobs archive.</p>
+                <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">Return to Dashboard</button>
+                <button class="btn btn-primary" onclick="window.location.href='/completed-jobs'">View Completed Jobs</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Modal -->
+    <div id="reject-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reject Preview</h3>
+            </div>
+            <div class="modal-body">
+                <label for="reject-reason">Rejection Reason (required, min 10 characters):</label>
+                <textarea id="reject-reason" placeholder="Describe what needs to be fixed..."></textarea>
+
+                <label for="return-stage" style="margin-top: 15px;">Return to Stage:</label>
+                <select id="return-stage">
+                    <option value="2">Stage 2: Layer Matching</option>
+                    <option value="4">Stage 4: Validation Review</option>
+                    <option value="5">Stage 5: ExtendScript Generation</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRejectModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="submitRejection()">Reject & Return</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const jobId = '{{ job_id }}';
+        let previewStatus = null;
+
+        async function loadPreviewStatus() {
+            try {
+                const response = await fetch(`/api/job/${jobId}/preview-status`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showError(data.error);
+                    return;
+                }
+
+                previewStatus = data;
+                updateUI(data);
+            } catch (error) {
+                console.error('Error loading preview status:', error);
+                showError('Failed to load preview status');
+            }
+        }
+
+        async function loadJobInfo() {
+            try {
+                const response = await fetch(`/api/job/${jobId}/preview-data`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    return;
+                }
+
+                document.getElementById('client-name').textContent = data.job_details.client_name || '-';
+                document.getElementById('project-name').textContent = data.job_details.project_name || '-';
+                document.getElementById('output-name').textContent = data.job_details.output_name || '-';
+            } catch (error) {
+                console.error('Error loading job info:', error);
+            }
+        }
+
+        function updateUI(data) {
+            const statusBadge = document.getElementById('status-badge');
+            statusBadge.textContent = data.status;
+            statusBadge.className = `status-badge status-${data.status}`;
+
+            document.getElementById('loading-section').style.display = 'none';
+
+            if (data.preview_ready) {
+                // Show comparison
+                document.getElementById('psd-preview').src = `/api/job/${jobId}/preview-file/psd`;
+                document.getElementById('video-preview').src = `/api/job/${jobId}/preview-file/video`;
+                document.getElementById('comparison-section').style.display = 'block';
+            } else {
+                // Show generate button
+                document.getElementById('generate-preview-section').style.display = 'block';
+            }
+        }
+
+        async function generatePreview() {
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Generating Preview...';
+
+            try {
+                const response = await fetch(`/api/job/${jobId}/generate-preview`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess('Preview generated successfully!');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showError(data.error);
+                    button.disabled = false;
+                    button.textContent = 'Generate Preview';
+                }
+            } catch (error) {
+                console.error('Error generating preview:', error);
+                showError('Failed to generate preview');
+                button.disabled = false;
+                button.textContent = 'Generate Preview';
+            }
+        }
+
+        async function approvePreview() {
+            if (!confirm('Are you sure you want to approve this preview and complete the job?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/job/${jobId}/approve-preview`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user',
+                        notes: 'Approved from web interface'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess('Job approved and completed! You can now archive this job.');
+                    // Hide approve/reject buttons, show archive button
+                    document.querySelector('.action-bar button.btn-danger').style.display = 'none';
+                    document.querySelector('.action-bar button.btn-primary').style.display = 'none';
+                    document.getElementById('archive-btn').style.display = 'inline-block';
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                console.error('Error approving preview:', error);
+                showError('Failed to approve preview');
+            }
+        }
+
+        async function archiveJob() {
+            if (!confirm('Archive this job? It will be moved to the completed jobs archive and removed from the active dashboard.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/jobs/${jobId}/archive`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Hide comparison section and show success message
+                    document.getElementById('comparison-section').style.display = 'none';
+                    document.getElementById('archive-success').style.display = 'block';
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                console.error('Error archiving job:', error);
+                showError('Failed to archive job');
+            }
+        }
+
+        function showRejectModal() {
+            document.getElementById('reject-modal').style.display = 'block';
+        }
+
+        function closeRejectModal() {
+            document.getElementById('reject-modal').style.display = 'none';
+            document.getElementById('reject-reason').value = '';
+        }
+
+        async function submitRejection() {
+            const reason = document.getElementById('reject-reason').value;
+            const returnStage = parseInt(document.getElementById('return-stage').value);
+
+            if (!reason || reason.trim().length < 10) {
+                alert('Please provide a rejection reason (minimum 10 characters)');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/job/${jobId}/reject-preview`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'user',
+                        reason: reason,
+                        return_to_stage: returnStage
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(`Preview rejected. Returning to Stage ${returnStage}...`);
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 1500);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                console.error('Error rejecting preview:', error);
+                showError('Failed to reject preview');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.container').firstChild);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            document.querySelector('.container').insertBefore(successDiv, document.querySelector('.container').firstChild);
+            setTimeout(() => successDiv.remove(), 5000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('reject-modal');
+            if (event.target == modal) {
+                closeRejectModal();
+            }
+        }
+
+        // Load data on page load
+        window.addEventListener('load', () => {
+            loadJobInfo();
+            loadPreviewStatus();
+        });
+    </script>
+</body>
+</html>

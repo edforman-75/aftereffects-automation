@@ -40,6 +40,12 @@ def production_dashboard():
     return render_template('production_dashboard.html')
 
 
+@core_bp.route('/completed-jobs')
+def completed_jobs():
+    """Serve the completed jobs archive page."""
+    return render_template('completed_jobs.html')
+
+
 @core_bp.route('/data/<path:filename>')
 def serve_data_file(filename):
     """Serve files from the data directory (exports, thumbnails, etc)."""

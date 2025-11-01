@@ -83,6 +83,11 @@ class Job(Base):
     current_stage = Column(Integer, default=0)
     status = Column(String(50), default='pending')
 
+    # Archive Status (for completed jobs)
+    archived = Column(Boolean, default=False)
+    archived_at = Column(DateTime)
+    archived_by = Column(String(100))
+
     # Stage 0: Validation
     stage0_completed_at = Column(DateTime)
     stage0_completed_by = Column(String(100))
@@ -116,11 +121,15 @@ class Job(Base):
     stage5_completed_by = Column(String(100), default='system')
     stage5_extendscript = Column(Text)  # Generated .jsx script
 
-    # Stage 6: Preview & Download
+    # Stage 6: Preview & Approval
     stage6_started_at = Column(DateTime)
     stage6_completed_at = Column(DateTime)
     stage6_completed_by = Column(String(100))
-    stage6_downloaded_at = Column(DateTime)  # When user downloaded
+    stage6_preview_video_path = Column(String(500))  # Path to preview video render
+    stage6_psd_preview_path = Column(String(500))  # Path to PSD preview image
+    stage6_approved = Column(Boolean, default=False)  # User approval status
+    stage6_approval_notes = Column(Text)  # User feedback/notes
+    stage6_downloaded_at = Column(DateTime)  # When user downloaded final files
 
     # Audit Trail
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -147,6 +156,7 @@ class Job(Base):
         Index('idx_priority', 'priority'),
         Index('idx_batch', 'batch_id'),
         Index('idx_created', 'created_at'),
+        Index('idx_archived', 'archived'),
     )
 
     def __repr__(self):

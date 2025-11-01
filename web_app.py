@@ -45,6 +45,8 @@ from routes.batch_routes import batch_bp
 from routes.job_routes import job_bp
 from routes.stage2_routes import stage2_bp
 from routes.stage4_routes import stage4_bp
+from routes.stage5_routes import stage5_bp
+from routes.stage6_routes import stage6_bp
 
 # Error handling (Phase 4 refactoring)
 from utils.errors import AppError, handle_error
@@ -3701,6 +3703,8 @@ app.register_blueprint(batch_bp)
 app.register_blueprint(job_bp)
 app.register_blueprint(stage2_bp)
 app.register_blueprint(stage4_bp)
+app.register_blueprint(stage5_bp)
+app.register_blueprint(stage6_bp)
 
 
 @app.route('/api/batch/upload', methods=['POST'])

@@ -12,6 +12,7 @@ from flask import Blueprint, request, jsonify, render_template, Response
 from config.container import container
 from database import db_session
 from database.models import Job
+from services.extendscript_service import ExtendScriptService
 
 
 # Create blueprint
@@ -153,17 +154,38 @@ def override_validation(job_id: str) -> Tuple[Response, int]:
             job.stage4_completed_at = datetime.utcnow()
             job.stage4_completed_by = user_id
             job.current_stage = 5
+            job.status = 'processing'
+            job.stage5_started_at = datetime.utcnow()
             session.commit()
 
             container.main_logger.info(
                 f"Job {job_id}: Validation overridden by {user_id}, proceeding to Stage 5"
             )
 
-            return jsonify({
-                'success': True,
-                'job_id': job_id,
-                'message': 'Validation overridden - proceeding to ExtendScript generation'
-            })
+            # Trigger Stage 5 ExtendScript generation using shared service
+            extendscript_service = ExtendScriptService(container.main_logger)
+            success, error, gen_result = extendscript_service.generate_for_job(job, session)
+
+            if success:
+                container.main_logger.info(
+                    f"Job {job_id}: ExtendScript generated successfully, transitioned to Stage 6"
+                )
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'message': 'ExtendScript generated successfully - ready for download',
+                    'stage': 6,
+                    'download_url': f'/preview/{job_id}'
+                })
+            else:
+                container.main_logger.error(f"Job {job_id}: ExtendScript generation failed: {error}")
+                job.status = 'failed'
+                session.commit()
+                return jsonify({
+                    'success': False,
+                    'job_id': job_id,
+                    'error': error
+                }), 500
 
         finally:
             session.close()

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Completed Jobs - After Effects Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>Completed Jobs Archive</h1>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">
+                        <span class="icon">&#8592;</span> Back to Dashboard
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshCompletedJobs()">
+                        <span class="icon">&#128260;</span> Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Overview Statistics -->
+        <section class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-icon">&#128193;</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="total-archived">0</div>
+                    <div class="stat-label">Total Archived</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">&#128197;</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="this-week">0</div>
+                    <div class="stat-label">This Week</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">&#128198;</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="this-month">0</div>
+                    <div class="stat-label">This Month</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">&#11088;</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="high-priority">0</div>
+                    <div class="stat-label">High Priority</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters and Search -->
+        <section class="controls">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search by Job ID, Client, or Project..." onkeyup="filterJobs()">
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-timeframe="all" onclick="filterByTimeframe('all')">All Time</button>
+                <button class="filter-btn" data-timeframe="week" onclick="filterByTimeframe('week')">This Week</button>
+                <button class="filter-btn" data-timeframe="month" onclick="filterByTimeframe('month')">This Month</button>
+                <button class="filter-btn" data-timeframe="quarter" onclick="filterByTimeframe('quarter')">This Quarter</button>
+            </div>
+            <div class="priority-filters">
+                <button class="priority-btn active" data-priority="all" onclick="filterByPriority('all')">All</button>
+                <button class="priority-btn" data-priority="high" onclick="filterByPriority('high')">&#128308; High</button>
+                <button class="priority-btn" data-priority="medium" onclick="filterByPriority('medium')">&#128993; Medium</button>
+                <button class="priority-btn" data-priority="low" onclick="filterByPriority('low')">&#128994; Low</button>
+            </div>
+        </section>
+
+        <!-- Completed Jobs Table -->
+        <section class="completed-jobs-section">
+            <div class="section-header">
+                <h2>Archived Jobs</h2>
+                <div class="section-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="exportToCSV()">
+                        <span class="icon">&#128190;</span> Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="jobs-table" id="completed-jobs-table">
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Client</th>
+                            <th>Project</th>
+                            <th>Priority</th>
+                            <th>Completed</th>
+                            <th>Archived By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-tbody">
+                        <!-- Jobs will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="pagination">
+                <!-- Pagination controls will be inserted here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Job Details Modal -->
+    <div id="job-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="job-modal-title">Job Details</h2>
+                <button class="close-btn" onclick="closeJobModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="job-details-content">
+                    <!-- Job details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let allJobs = [];
+        let filteredJobs = [];
+        let currentPage = 1;
+        const jobsPerPage = 25;
+        let currentTimeframe = 'all';
+        let currentPriority = 'all';
+        let searchQuery = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCompletedJobs();
+        });
+
+        // Load completed jobs from API
+        async function loadCompletedJobs() {
+            try {
+                const response = await fetch('/api/jobs?archived=true');
+                if (!response.ok) throw new Error('Failed to load completed jobs');
+
+                const data = await response.json();
+                allJobs = data.jobs || [];
+
+                updateStats();
+                applyFilters();
+                renderJobs();
+                renderPagination();
+            } catch (error) {
+                console.error('Error loading completed jobs:', error);
+                showError('Failed to load completed jobs');
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const now = new Date();
+            const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+            const thisWeek = allJobs.filter(j => new Date(j.archived_at) >= weekAgo).length;
+            const thisMonth = allJobs.filter(j => new Date(j.archived_at) >= monthAgo).length;
+            const highPriority = allJobs.filter(j => j.priority === 'high').length;
+
+            document.getElementById('total-archived').textContent = allJobs.length;
+            document.getElementById('this-week').textContent = thisWeek;
+            document.getElementById('this-month').textContent = thisMonth;
+            document.getElementById('high-priority').textContent = highPriority;
+        }
+
+        // Apply all filters
+        function applyFilters() {
+            filteredJobs = allJobs;
+
+            // Apply search filter
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filteredJobs = filteredJobs.filter(job =>
+                    job.job_id.toLowerCase().includes(query) ||
+                    (job.client_name && job.client_name.toLowerCase().includes(query)) ||
+                    (job.project_name && job.project_name.toLowerCase().includes(query))
+                );
+            }
+
+            // Apply timeframe filter
+            if (currentTimeframe !== 'all') {
+                const now = new Date();
+                let cutoffDate;
+
+                switch (currentTimeframe) {
+                    case 'week':
+                        cutoffDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case 'month':
+                        cutoffDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                    case 'quarter':
+                        cutoffDate = new Date(now - 90 * 24 * 60 * 60 * 1000);
+                        break;
+                }
+
+                filteredJobs = filteredJobs.filter(job =>
+                    new Date(job.archived_at) >= cutoffDate
+                );
+            }
+
+            // Apply priority filter
+            if (currentPriority !== 'all') {
+                filteredJobs = filteredJobs.filter(job => job.priority === currentPriority);
+            }
+
+            currentPage = 1; // Reset to first page when filters change
+        }
+
+        // Render jobs table
+        function renderJobs() {
+            const tbody = document.getElementById('jobs-tbody');
+            const startIndex = (currentPage - 1) * jobsPerPage;
+            const endIndex = startIndex + jobsPerPage;
+            const pageJobs = filteredJobs.slice(startIndex, endIndex);
+
+            if (pageJobs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #666;">No completed jobs found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pageJobs.map(job => `
+                <tr data-job-id="${job.job_id}">
+                    <td><strong>${job.job_id}</strong></td>
+                    <td>${job.client_name || '-'}</td>
+                    <td>${job.project_name || '-'}</td>
+                    <td>
+                        <span class="priority-badge priority-${job.priority}">
+                            ${job.priority === 'high' ? '&#128308;' : job.priority === 'medium' ? '&#128993;' : '&#128994;'}
+                            ${job.priority}
+                        </span>
+                    </td>
+                    <td>${formatDate(job.stage6_completed_at)}</td>
+                    <td>${job.archived_by || 'system'}</td>
+                    <td>
+                        <button class="btn-sm btn-secondary" onclick="viewJobDetails('${job.job_id}')">View</button>
+                        <button class="btn-sm btn-primary" onclick="unarchiveJob('${job.job_id}')">Unarchive</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Render pagination
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
+            const pagination = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '<button class="page-btn" onclick="changePage(' + (currentPage - 1) + ')" ' + (currentPage === 1 ? 'disabled' : '') + '>Previous</button>';
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage || i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += '<button class="page-btn ' + (i === currentPage ? 'active' : '') + '" onclick="changePage(' + i + ')">' + i + '</button>';
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += '<span>...</span>';
+                }
+            }
+
+            html += '<button class="page-btn" onclick="changePage(' + (currentPage + 1) + ')" ' + (currentPage === totalPages ? 'disabled' : '') + '>Next</button>';
+
+            pagination.innerHTML = html;
+        }
+
+        // Change page
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderJobs();
+            renderPagination();
+        }
+
+        // Filter functions
+        function filterByTimeframe(timeframe) {
+            currentTimeframe = timeframe;
+            document.querySelectorAll('[data-timeframe]').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-timeframe="${timeframe}"]`).classList.add('active');
+            applyFilters();
+            renderJobs();
+            renderPagination();
+        }
+
+        function filterByPriority(priority) {
+            currentPriority = priority;
+            document.querySelectorAll('[data-priority]').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-priority="${priority}"]`).classList.add('active');
+            applyFilters();
+            renderJobs();
+            renderPagination();
+        }
+
+        function filterJobs() {
+            searchQuery = document.getElementById('search-input').value;
+            applyFilters();
+            renderJobs();
+            renderPagination();
+        }
+
+        // Refresh
+        function refreshCompletedJobs() {
+            loadCompletedJobs();
+        }
+
+        // View job details
+        async function viewJobDetails(jobId) {
+            try {
+                const response = await fetch(`/api/jobs/${jobId}`);
+                if (!response.ok) throw new Error('Failed to load job details');
+
+                const job = await response.json();
+                displayJobModal(job);
+            } catch (error) {
+                console.error('Error loading job details:', error);
+                showError('Failed to load job details');
+            }
+        }
+
+        // Display job modal
+        function displayJobModal(job) {
+            document.getElementById('job-modal-title').textContent = `Job: ${job.job_id}`;
+            document.getElementById('job-details-content').innerHTML = `
+                <div class="job-details-grid">
+                    <div class="detail-group">
+                        <h3>Basic Information</h3>
+                        <p><strong>Job ID:</strong> ${job.job_id}</p>
+                        <p><strong>Client:</strong> ${job.client_name || '-'}</p>
+                        <p><strong>Project:</strong> ${job.project_name || '-'}</p>
+                        <p><strong>Priority:</strong> ${job.priority}</p>
+                        <p><strong>Output Name:</strong> ${job.output_name}</p>
+                    </div>
+                    <div class="detail-group">
+                        <h3>Completion Details</h3>
+                        <p><strong>Completed:</strong> ${formatDateTime(job.stage6_completed_at)}</p>
+                        <p><strong>Archived:</strong> ${formatDateTime(job.archived_at)}</p>
+                        <p><strong>Archived By:</strong> ${job.archived_by || 'system'}</p>
+                    </div>
+                    <div class="detail-group">
+                        <h3>Files</h3>
+                        <p><strong>PSD:</strong> ${job.psd_path}</p>
+                        <p><strong>AEPX:</strong> ${job.aepx_path}</p>
+                        ${job.final_aep_path ? `<p><strong>Final AEP:</strong> ${job.final_aep_path}</p>` : ''}
+                    </div>
+                    ${job.notes ? `
+                    <div class="detail-group">
+                        <h3>Notes</h3>
+                        <p>${job.notes}</p>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            document.getElementById('job-modal').style.display = 'block';
+        }
+
+        // Close modal
+        function closeJobModal() {
+            document.getElementById('job-modal').style.display = 'none';
+        }
+
+        // Unarchive job
+        async function unarchiveJob(jobId) {
+            if (!confirm(`Are you sure you want to unarchive job ${jobId}? It will return to the active dashboard.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/jobs/${jobId}/unarchive`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to unarchive job');
+
+                showSuccess(`Job ${jobId} has been unarchived`);
+                loadCompletedJobs(); // Reload list
+            } catch (error) {
+                console.error('Error unarchiving job:', error);
+                showError('Failed to unarchive job');
+            }
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            const headers = ['Job ID', 'Client', 'Project', 'Priority', 'Completed', 'Archived', 'Archived By'];
+            const rows = filteredJobs.map(job => [
+                job.job_id,
+                job.client_name || '',
+                job.project_name || '',
+                job.priority,
+                job.stage6_completed_at,
+                job.archived_at,
+                job.archived_by || 'system'
+            ]);
+
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `completed-jobs-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString();
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+
+        function showSuccess(message) {
+            alert(message);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('job-modal');
+            if (event.target === modal) {
+                closeJobModal();
+            }
+        }
+    </script>
+
+    <style>
+        .table-container {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        .jobs-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .jobs-table th {
+            background: #f5f5f5;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .jobs-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .jobs-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .priority-high {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .priority-medium {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .priority-low {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 2rem 0;
+        }
+
+        .page-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: #f5f5f5;
+        }
+
+        .page-btn.active {
+            background: #2196f3;
+            color: white;
+            border-color: #2196f3;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .job-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .detail-group h3 {
+            margin-bottom: 1rem;
+            color: #333;
+            border-bottom: 2px solid #2196f3;
+            padding-bottom: 0.5rem;
+        }
+
+        .detail-group p {
+            margin: 0.5rem 0;
+        }
+    </style>
+</body>
+</html>

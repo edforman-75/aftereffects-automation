@@ -171,3 +171,203 @@ def get_jobs_by_stage(stage: int):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@job_bp.route('/api/jobs', methods=['GET'])
+def get_jobs():
+    """Get jobs with optional filtering."""
+    try:
+        from database import db_session
+        from database.models import Job
+
+        archived = request.args.get('archived', 'false').lower() == 'true'
+        limit = int(request.args.get('limit', 1000))
+
+        query = db_session.query(Job)
+
+        if archived:
+            query = query.filter(Job.archived == True)
+        else:
+            query = query.filter((Job.archived == False) | (Job.archived == None))
+
+        query = query.order_by(Job.created_at.desc()).limit(limit)
+        jobs = query.all()
+
+        return jsonify({
+            'success': True,
+            'count': len(jobs),
+            'jobs': [{
+                'job_id': job.job_id,
+                'batch_id': job.batch_id,
+                'current_stage': job.current_stage,
+                'status': job.status,
+                'priority': job.priority,
+                'client_name': job.client_name,
+                'project_name': job.project_name,
+                'output_name': job.output_name,
+                'psd_path': job.psd_path,
+                'aepx_path': job.aepx_path,
+                'final_aep_path': job.final_aep_path,
+                'notes': job.notes,
+                'archived': job.archived,
+                'archived_at': job.archived_at.isoformat() if job.archived_at else None,
+                'archived_by': job.archived_by,
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+                'stage6_completed_at': job.stage6_completed_at.isoformat() if job.stage6_completed_at else None
+            } for job in jobs]
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting jobs: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@job_bp.route('/api/jobs/<job_id>', methods=['GET'])
+def get_job_details(job_id: str):
+    """Get detailed information for a specific job."""
+    try:
+        from database import db_session
+        from database.models import Job
+
+        job = db_session.query(Job).filter(Job.job_id == job_id).first()
+
+        if not job:
+            return jsonify({
+                'success': False,
+                'error': f'Job not found: {job_id}'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'job_id': job.job_id,
+            'batch_id': job.batch_id,
+            'current_stage': job.current_stage,
+            'status': job.status,
+            'priority': job.priority,
+            'client_name': job.client_name,
+            'project_name': job.project_name,
+            'output_name': job.output_name,
+            'psd_path': job.psd_path,
+            'aepx_path': job.aepx_path,
+            'final_aep_path': job.final_aep_path,
+            'notes': job.notes,
+            'archived': job.archived,
+            'archived_at': job.archived_at.isoformat() if job.archived_at else None,
+            'archived_by': job.archived_by,
+            'created_at': job.created_at.isoformat() if job.created_at else None,
+            'updated_at': job.updated_at.isoformat() if job.updated_at else None,
+            'stage6_completed_at': job.stage6_completed_at.isoformat() if job.stage6_completed_at else None,
+            'stage6_completed_by': job.stage6_completed_by
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting job details: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@job_bp.route('/api/jobs/<job_id>/archive', methods=['POST'])
+def archive_job(job_id: str):
+    """Archive a completed job."""
+    try:
+        from database import db_session
+        from database.models import Job
+        from datetime import datetime
+
+        data = request.get_json() or {}
+        user_id = data.get('user_id', 'system')
+
+        job = db_session.query(Job).filter(Job.job_id == job_id).first()
+
+        if not job:
+            return jsonify({
+                'success': False,
+                'error': f'Job not found: {job_id}'
+            }), 404
+
+        # Verify job is in Stage 6 and approved
+        if job.current_stage != 6:
+            return jsonify({
+                'success': False,
+                'error': f'Job must be in Stage 6 to archive (currently in Stage {job.current_stage})'
+            }), 400
+
+        if not job.stage6_approved:
+            return jsonify({
+                'success': False,
+                'error': 'Job must be approved before archiving'
+            }), 400
+
+        # Archive the job
+        job.archived = True
+        job.archived_at = datetime.utcnow()
+        job.archived_by = user_id
+        job.status = 'completed'
+
+        db_session.commit()
+
+        container.main_logger.info(f"Job {job_id} archived by {user_id}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Job {job_id} archived successfully',
+            'archived_at': job.archived_at.isoformat()
+        })
+
+    except Exception as e:
+        db_session.rollback()
+        container.main_logger.error(f"Error archiving job: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@job_bp.route('/api/jobs/<job_id>/unarchive', methods=['POST'])
+def unarchive_job(job_id: str):
+    """Unarchive a job and return it to active status."""
+    try:
+        from database import db_session
+        from database.models import Job
+
+        job = db_session.query(Job).filter(Job.job_id == job_id).first()
+
+        if not job:
+            return jsonify({
+                'success': False,
+                'error': f'Job not found: {job_id}'
+            }), 404
+
+        if not job.archived:
+            return jsonify({
+                'success': False,
+                'error': 'Job is not archived'
+            }), 400
+
+        # Unarchive the job
+        job.archived = False
+        job.archived_at = None
+        job.archived_by = None
+        job.status = 'awaiting_approval'  # Return to Stage 6 approval state
+
+        db_session.commit()
+
+        container.main_logger.info(f"Job {job_id} unarchived")
+
+        return jsonify({
+            'success': True,
+            'message': f'Job {job_id} unarchived successfully'
+        })
+
+    except Exception as e:
+        db_session.rollback()
+        container.main_logger.error(f"Error unarchiving job: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

@@ -13,6 +13,9 @@
             <div class="header-content">
                 <h1>🏭 Production Dashboard</h1>
                 <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='/completed-jobs'">
+                        <span class="icon">📁</span> Completed Jobs
+                    </button>
                     <button class="btn btn-primary" onclick="showUploadModal()">
                         <span class="icon">📤</span> Upload Batch
                     </button>
@@ -157,10 +160,10 @@
                     </div>
                 </div>
 
-                <!-- Stage 6: Download -->
+                <!-- Stage 6: Preview & Approval -->
                 <div class="stage-column" data-stage="6">
                     <div class="stage-header">
-                        <h3>Stage 6: Download</h3>
+                        <h3>Stage 6: Preview</h3>
                         <span class="stage-count" id="stage-6-count">0</span>
                     </div>
                     <div class="stage-jobs" id="stage-6-jobs">

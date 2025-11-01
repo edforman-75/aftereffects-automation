@@ -7,11 +7,13 @@ Handles Stage 2 layer matching review and approval.
 from datetime import datetime
 from typing import Tuple
 from flask import Blueprint, request, jsonify, render_template, Response
+import json
 
 # Import services from web_app (they're initialized there)
 from config.container import container
 from database import db_session
 from database.models import Job
+from services.extendscript_service import ExtendScriptService
 
 
 # Create blueprint
@@ -144,21 +146,38 @@ def approve_stage2_matching(job_id: str) -> Tuple[Response, int]:
 
             # Mark Stage 3 complete and Stage 4 as skipped
             job.current_stage = 5
-            job.status = 'awaiting_download'  # ExtendScript ready for download (after Stage 5 preprocessing)
+            job.status = 'processing'  # Processing ExtendScript generation
             job.stage3_completed_at = datetime.utcnow()  # Mark Stage 3 (Auto-Validation) complete
             job.stage4_completed_at = datetime.utcnow()  # Mark Stage 4 as skipped (no review needed)
+            job.stage5_started_at = datetime.utcnow()
             session.commit()
 
             container.main_logger.info(
                 f"Job {job_id}: Validation passed, skipping Stage 4 review, proceeding to Stage 5"
             )
 
-            # Start Stage 5 preprocessing (ExtendScript generation)
-            result = {
-                'success': True,
-                'status': 'processing',
-                'message': 'Proceeding to Stage 5 ExtendScript generation'
-            }
+            # Trigger Stage 5 ExtendScript generation using shared service
+            extendscript_service = ExtendScriptService(container.main_logger)
+            success, error, gen_result = extendscript_service.generate_for_job(job, session)
+
+            if success:
+                container.main_logger.info(
+                    f"Job {job_id}: ExtendScript generated successfully, transitioned to Stage 6"
+                )
+                result = {
+                    'success': True,
+                    'status': 'complete',
+                    'message': 'ExtendScript generation complete'
+                }
+            else:
+                container.main_logger.error(f"Job {job_id}: ExtendScript generation failed: {error}")
+                job.status = 'failed'
+                session.commit()
+                result = {
+                    'success': False,
+                    'status': 'failed',
+                    'message': error
+                }
 
             response_data = {
                 'success': True,
