@@ -46,6 +46,9 @@ from routes.job_routes import job_bp
 from routes.stage2_routes import stage2_bp
 from routes.stage4_routes import stage4_bp
 
+# Error handling (Phase 4 refactoring)
+from utils.errors import AppError, handle_error
+
 # Configuration (Phase 3 refactoring - centralized in config/settings.py)
 from config.settings import settings
 
@@ -91,33 +94,28 @@ def after_request(response):
         )
     return response
 
-# Error handling middleware
+# Error handling middleware (Phase 4 refactoring)
+@app.errorhandler(AppError)
+def handle_app_error(e):
+    """Handle custom application errors using centralized error handler."""
+    return handle_error(e)
+
 @app.errorhandler(404)
 def not_found_error(e):
     """Handle 404 errors."""
-    return jsonify({'success': False, 'message': 'Endpoint not found'}), 404
+    return jsonify({'success': False, 'error': 'Endpoint not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(e):
     """Handle 500 errors."""
     correlation_id = getattr(g, 'correlation_id', 'unknown')
     container.main_logger.error(f"Internal server error: {e} correlation_id={correlation_id}", exc_info=True)
-    return jsonify({'success': False, 'message': 'Internal server error'}), 500
+    return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    """Handle uncaught exceptions."""
-    container.main_logger.error(f"Unhandled exception: {e}", exc_info=True)
-
-    if app.debug:
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred',
-            'error': str(e),
-            'type': type(e).__name__
-        }), 500
-    else:
-        return jsonify({'success': False, 'message': 'An unexpected error occurred'}), 500
+    """Handle all uncaught exceptions using centralized error handler."""
+    return handle_error(e)
 
 # Ensure directories exist
 UPLOAD_FOLDER.mkdir(exist_ok=True)
