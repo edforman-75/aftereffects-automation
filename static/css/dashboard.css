@@ -255,16 +255,18 @@ body {
 
 .pipeline-stages {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-    overflow-x: auto;
+    grid-template-columns: repeat(7, 1fr);  /* Exactly 7 columns for stages 0-6 */
+    gap: 12px;
+    overflow-x: visible;
+    min-width: 100%;
 }
 
 .stage-column {
     background: var(--background);
     border-radius: 8px;
-    padding: 16px;
+    padding: 12px;
     min-height: 300px;
+    min-width: 140px;  /* Minimum width per stage to fit on screen */
 }
 
 .stage-header {
@@ -694,6 +696,28 @@ body {
 }
 
 /* Responsive */
+@media (max-width: 1600px) {
+    .pipeline-stages {
+        grid-template-columns: repeat(7, minmax(140px, 1fr));  /* Allow narrower columns */
+        gap: 10px;
+    }
+    .stage-column {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .pipeline-stages {
+        grid-template-columns: repeat(4, 1fr);  /* 4 columns on medium screens */
+    }
+}
+
+@media (max-width: 900px) {
+    .pipeline-stages {
+        grid-template-columns: repeat(2, 1fr);  /* 2 columns on tablets */
+    }
+}
+
 @media (max-width: 768px) {
     .header-content {
         flex-direction: column;
@@ -714,7 +738,7 @@ body {
     }
 
     .pipeline-stages {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr;  /* Single column on mobile */
     }
 
     .job-details-grid {

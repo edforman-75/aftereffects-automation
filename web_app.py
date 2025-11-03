@@ -96,6 +96,21 @@ def after_request(response):
         )
     return response
 
+# CRITICAL: Database session cleanup to prevent connection pool exhaustion
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """
+    Remove database session after each request.
+
+    This is CRITICAL for preventing connection pool exhaustion.
+    Without this, scoped_session instances accumulate and never return
+    connections to the pool, eventually hitting the pool size limit.
+
+    Args:
+        exception: Any exception that occurred during the request
+    """
+    db_session.remove()
+
 # Error handling middleware (Phase 4 refactoring)
 @app.errorhandler(AppError)
 def handle_app_error(e):

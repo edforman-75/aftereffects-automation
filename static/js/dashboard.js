@@ -70,12 +70,12 @@ async function loadStage(stage) {
         const data = await response.json();
 
         if (data.success) {
-            // Add stage info to each job
-            const jobs = data.jobs.map(job => ({...job, current_stage: stage}));
-            allJobs = allJobs.concat(jobs);
+            // Don't override current_stage - use what comes from the API!
+            // The job already has the correct current_stage from the database
+            allJobs = allJobs.concat(data.jobs);
 
             // Update stage count
-            document.getElementById(`stage-${stage}-count`).textContent = jobs.length;
+            document.getElementById(`stage-${stage}-count`).textContent = data.jobs.length;
         }
     } catch (error) {
         console.error(`Error loading stage ${stage}:`, error);
