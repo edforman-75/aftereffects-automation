@@ -65,8 +65,16 @@ def get_job_status(job_id: str):
                 'stage3_completed_at': job.stage3_completed_at.isoformat() if job.stage3_completed_at else None,
                 'stage4_completed_at': job.stage4_completed_at.isoformat() if job.stage4_completed_at else None
             },
-            'stage1_results': job.stage1_results,
-            'stage2_approved_matches': job.stage2_approved_matches,
+            'stage1_summary': {
+                'has_results': bool(job.stage1_results),
+                'data_size': len(str(job.stage1_results)) if job.stage1_results else 0,
+                'endpoint': f'/api/job/{job_id}/stage1-results'
+            },
+            'stage2_summary': {
+                'has_matches': bool(job.stage2_approved_matches),
+                'data_size': len(str(job.stage2_approved_matches)) if job.stage2_approved_matches else 0,
+                'endpoint': f'/api/job/{job_id}/stage2-matches'
+            },
             'warnings': {
                 'total': warning_count,
                 'critical': critical_count,
@@ -367,6 +375,198 @@ def unarchive_job(job_id: str):
     except Exception as e:
         db_session.rollback()
         container.main_logger.error(f"Error unarchiving job: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@job_bp.route('/api/job/<job_id>/stage1-results', methods=['GET'])
+def get_stage1_results(job_id: str):
+    """
+    Get Stage 1 results for a job with optional chunking.
+
+    Query Parameters:
+        offset (int): Starting position in the JSON string (default: 0)
+        limit (int): Maximum number of characters to return (default: 25000, max: 50000)
+        full (bool): Return full results without chunking (default: false)
+
+    Returns:
+        JSON response with stage1 results (full or chunked)
+    """
+    try:
+        from database import db_session
+        from database.models import Job
+        from flask import request
+        import json
+
+        session = db_session()
+
+        try:
+            job = session.query(Job).filter(Job.job_id == job_id).first()
+
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': f'Job not found: {job_id}'
+                }), 404
+
+            if not job.stage1_results:
+                return jsonify({
+                    'success': False,
+                    'error': 'No Stage 1 results available'
+                }), 404
+
+            # Check if full response is requested (use with caution for large data)
+            full = request.args.get('full', 'false').lower() == 'true'
+
+            if full:
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'results': job.stage1_results
+                })
+
+            # Chunked response for large data
+            results_str = json.dumps(job.stage1_results) if not isinstance(job.stage1_results, str) else job.stage1_results
+
+            try:
+                offset = int(request.args.get('offset', 0))
+                limit = int(request.args.get('limit', 25000))
+
+                # Validate parameters
+                if offset < 0:
+                    offset = 0
+                if limit < 1:
+                    limit = 25000
+                if limit > 50000:
+                    limit = 50000
+
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid offset or limit parameter'
+                }), 400
+
+            total_length = len(results_str)
+            chunk = results_str[offset:offset + limit]
+            has_more = (offset + len(chunk)) < total_length
+
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'content': chunk,
+                'metadata': {
+                    'offset': offset,
+                    'limit': limit,
+                    'chunk_length': len(chunk),
+                    'total_length': total_length,
+                    'has_more': has_more,
+                    'next_offset': offset + len(chunk) if has_more else None
+                }
+            })
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting stage1 results: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@job_bp.route('/api/job/<job_id>/stage2-matches', methods=['GET'])
+def get_stage2_matches(job_id: str):
+    """
+    Get Stage 2 approved matches for a job with optional chunking.
+
+    Query Parameters:
+        offset (int): Starting position in the JSON string (default: 0)
+        limit (int): Maximum number of characters to return (default: 25000, max: 50000)
+        full (bool): Return full matches without chunking (default: false)
+
+    Returns:
+        JSON response with stage2 approved matches (full or chunked)
+    """
+    try:
+        from database import db_session
+        from database.models import Job
+        from flask import request
+        import json
+
+        session = db_session()
+
+        try:
+            job = session.query(Job).filter(Job.job_id == job_id).first()
+
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': f'Job not found: {job_id}'
+                }), 404
+
+            if not job.stage2_approved_matches:
+                return jsonify({
+                    'success': False,
+                    'error': 'No Stage 2 approved matches available'
+                }), 404
+
+            # Check if full response is requested (use with caution for large data)
+            full = request.args.get('full', 'false').lower() == 'true'
+
+            if full:
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'matches': job.stage2_approved_matches
+                })
+
+            # Chunked response for large data
+            matches_str = json.dumps(job.stage2_approved_matches) if not isinstance(job.stage2_approved_matches, str) else job.stage2_approved_matches
+
+            try:
+                offset = int(request.args.get('offset', 0))
+                limit = int(request.args.get('limit', 25000))
+
+                # Validate parameters
+                if offset < 0:
+                    offset = 0
+                if limit < 1:
+                    limit = 25000
+                if limit > 50000:
+                    limit = 50000
+
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid offset or limit parameter'
+                }), 400
+
+            total_length = len(matches_str)
+            chunk = matches_str[offset:offset + limit]
+            has_more = (offset + len(chunk)) < total_length
+
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'content': chunk,
+                'metadata': {
+                    'offset': offset,
+                    'limit': limit,
+                    'chunk_length': len(chunk),
+                    'total_length': total_length,
+                    'has_more': has_more,
+                    'next_offset': offset + len(chunk) if has_more else None
+                }
+            })
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting stage2 matches: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)

@@ -14,6 +14,8 @@ from .errors import (
     handle_error
 )
 
+from .large_content_handler import LargeContentHandler
+
 __all__ = [
     'AppError',
     'JobNotFoundError',
@@ -21,5 +23,6 @@ __all__ = [
     'ValidationError',
     'FileProcessingError',
     'StageTransitionError',
-    'handle_error'
+    'handle_error',
+    'LargeContentHandler'
 ]

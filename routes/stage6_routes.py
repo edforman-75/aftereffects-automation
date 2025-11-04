@@ -99,7 +99,7 @@ def get_preview_data(job_id: str) -> Tuple[Response, int]:
                     'has_script': bool(extendscript),
                     'script_length': len(extendscript),
                     'script_preview': extendscript[:1000] if extendscript else '',
-                    'full_script': extendscript,
+                    'download_url': f'/api/job/{job_id}/extendscript/download',
                     'generated_at': job.stage5_completed_at.isoformat() if job.stage5_completed_at else None
                 },
                 'statistics': {
@@ -606,6 +606,150 @@ def reject_preview(job_id: str) -> Tuple[Response, int]:
 
     except Exception as e:
         container.main_logger.error(f"Error rejecting preview: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@stage6_bp.route('/api/job/<job_id>/extendscript/download', methods=['GET'])
+def download_extendscript(job_id: str) -> Tuple[Response, int]:
+    """
+    Download the full ExtendScript file for a job.
+
+    This endpoint serves the complete ExtendScript as a downloadable file,
+    avoiding token limits in JSON responses.
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        File download response or error JSON with status code
+    """
+    try:
+        session = db_session()
+
+        try:
+            job = session.query(Job).filter_by(job_id=job_id).first()
+
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': f'Job not found: {job_id}'
+                }), 404
+
+            extendscript = job.stage5_extendscript
+            if not extendscript:
+                return jsonify({
+                    'success': False,
+                    'error': 'ExtendScript not generated yet'
+                }), 404
+
+            # Create a temporary file-like object
+            from io import BytesIO
+            script_bytes = BytesIO(extendscript.encode('utf-8'))
+
+            return send_file(
+                script_bytes,
+                mimetype='text/plain',
+                as_attachment=True,
+                download_name=f'{job_id}_script.jsx'
+            )
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        container.main_logger.error(f"Error downloading ExtendScript: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@stage6_bp.route('/api/job/<job_id>/extendscript', methods=['GET'])
+def get_extendscript_chunk(job_id: str) -> Tuple[Response, int]:
+    """
+    Get ExtendScript content with optional offset and limit for chunked reading.
+
+    This endpoint supports reading large ExtendScript files in chunks to avoid
+    token limits in responses.
+
+    Query Parameters:
+        offset (int): Starting position in the script (default: 0)
+        limit (int): Maximum number of characters to return (default: 10000, max: 50000)
+
+    Args:
+        job_id: Unique identifier for the job
+
+    Returns:
+        JSON response with script chunk and metadata, plus HTTP status code
+
+    Example:
+        GET /api/job/123/extendscript?offset=0&limit=10000
+        Returns first 10,000 characters of the script
+    """
+    try:
+        session = db_session()
+
+        try:
+            job = session.query(Job).filter_by(job_id=job_id).first()
+
+            if not job:
+                return jsonify({
+                    'success': False,
+                    'error': f'Job not found: {job_id}'
+                }), 404
+
+            extendscript = job.stage5_extendscript
+            if not extendscript:
+                return jsonify({
+                    'success': False,
+                    'error': 'ExtendScript not generated yet'
+                }), 404
+
+            # Get pagination parameters
+            try:
+                offset = int(request.args.get('offset', 0))
+                limit = int(request.args.get('limit', 10000))
+
+                # Validate parameters
+                if offset < 0:
+                    offset = 0
+                if limit < 1:
+                    limit = 10000
+                if limit > 50000:
+                    limit = 50000
+
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid offset or limit parameter'
+                }), 400
+
+            total_length = len(extendscript)
+            chunk = extendscript[offset:offset + limit]
+            has_more = (offset + len(chunk)) < total_length
+
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'content': chunk,
+                'metadata': {
+                    'offset': offset,
+                    'limit': limit,
+                    'chunk_length': len(chunk),
+                    'total_length': total_length,
+                    'has_more': has_more,
+                    'next_offset': offset + len(chunk) if has_more else None
+                }
+            })
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        container.main_logger.error(f"Error getting ExtendScript chunk: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
