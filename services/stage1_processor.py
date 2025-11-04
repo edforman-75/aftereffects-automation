@@ -265,8 +265,15 @@ class Stage1Processor:
             generate_thumbnails=False  # Keep headless
         )
 
+        # Extract composition name and store in job
+        compositions = aepx_result.get('compositions', [])
+        if compositions and len(compositions) > 0:
+            comp_name = compositions[0].get('name', 'test-aep')
+            job.comp_name = comp_name
+            print(f"    📝 Composition name: {comp_name}")
+
         return {
-            'compositions': aepx_result.get('compositions', []),
+            'compositions': compositions,
             'layers': aepx_result.get('layers', []),
             'placeholders': aepx_result.get('placeholders', []),
             'layer_categories': aepx_result.get('layer_categories', {}),

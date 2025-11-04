@@ -223,10 +223,15 @@ class Stage6PreviewService(BaseService):
 
             # Extract composition name from job's comp_name field
             comp_name = job.comp_name if hasattr(job, 'comp_name') and job.comp_name else 'test-aep'
+            self.log_info(f"Job {job.job_id}: Using composition name: '{comp_name}'")
 
             # Convert paths to absolute for aerender (it doesn't handle relative paths correctly)
             abs_aep_path = os.path.abspath(populated_aep_path)
             abs_video_path = os.path.abspath(preview_dir / f'{job.job_id}_preview.mp4')
+
+            self.log_info(f"Job {job.job_id}: AEP file: {abs_aep_path}")
+            self.log_info(f"Job {job.job_id}: Video output: {abs_video_path}")
+            self.log_info(f"Job {job.job_id}: AEP exists: {os.path.exists(abs_aep_path)}")
 
             video_preview_path = self._render_preview_video(
                 abs_aep_path,
@@ -541,14 +546,22 @@ class Stage6PreviewService(BaseService):
             Path to rendered video, or None if failed
         """
         try:
-            self.log_info(f"Rendering preview video from: {aep_path}")
-            self.log_info(f"Composition: {comp_name}")
+            self.log_info("=" * 80)
+            self.log_info("AERENDER VIDEO RENDERING")
+            self.log_info("=" * 80)
+            self.log_info(f"AEP file: {aep_path}")
+            self.log_info(f"AEP exists: {os.path.exists(aep_path)}")
+            self.log_info(f"Composition: '{comp_name}'")
+            self.log_info(f"Output path: {output_video_path}")
+            self.log_info(f"Output directory exists: {output_video_path.parent.exists()}")
 
             # Find aerender executable
             aerender_path = self._find_aerender()
             if not aerender_path:
-                self.log_error("aerender not found")
+                self.log_error("❌ aerender not found")
                 return None
+
+            self.log_info(f"aerender path: {aerender_path}")
 
             # Build aerender command
             # -project: AEP file
@@ -565,7 +578,10 @@ class Stage6PreviewService(BaseService):
                 '-OMtemplate', 'H.264 - Match Render Settings - 15 Mbps'
             ]
 
-            self.log_info(f"Running aerender: {' '.join(cmd)}")
+            self.log_info(f"Executing aerender command:")
+            self.log_info(f"  {' '.join(cmd)}")
+            self.log_info("=" * 80)
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -573,33 +589,54 @@ class Stage6PreviewService(BaseService):
                 timeout=600  # 10 minute timeout
             )
 
+            self.log_info("=" * 80)
+            self.log_info("AERENDER EXECUTION RESULT")
+            self.log_info("=" * 80)
+            self.log_info(f"Return code: {result.returncode}")
+
             # Log aerender output for debugging
             if result.stdout:
-                self.log_info(f"aerender stdout:\n{result.stdout}")
+                self.log_info(f"STDOUT:\n{result.stdout}")
+            else:
+                self.log_info("STDOUT: [empty]")
+
             if result.stderr:
-                self.log_info(f"aerender stderr:\n{result.stderr}")
+                self.log_info(f"STDERR:\n{result.stderr}")
+            else:
+                self.log_info("STDERR: [empty]")
+
+            self.log_info("=" * 80)
 
             if result.returncode == 0:
                 # Verify output video was created
+                self.log_info(f"Checking if output video exists: {output_video_path}")
                 if output_video_path.exists():
                     file_size = output_video_path.stat().st_size
                     self.log_info(
-                        f"Preview video rendered successfully: {output_video_path} "
+                        f"✅ Preview video rendered successfully: {output_video_path} "
                         f"({file_size / 1024 / 1024:.2f} MB)"
                     )
                     return str(output_video_path)
                 else:
-                    self.log_error(f"aerender ran but output video not found: {output_video_path}")
+                    self.log_error(f"❌ aerender returned success but output video not found: {output_video_path}")
+                    # List directory contents to help debug
+                    parent_dir = output_video_path.parent
+                    if parent_dir.exists():
+                        self.log_error(f"Directory contents of {parent_dir}:")
+                        for item in parent_dir.iterdir():
+                            self.log_error(f"  - {item.name}")
                     return None
             else:
-                self.log_error(f"aerender failed with return code {result.returncode}")
+                self.log_error(f"❌ aerender failed with return code {result.returncode}")
                 return None
 
         except subprocess.TimeoutExpired:
-            self.log_error("Preview rendering timed out after 10 minutes")
+            self.log_error("❌ Preview rendering timed out after 10 minutes")
             return None
         except Exception as e:
-            self.log_error(f"Failed to render preview video: {e}", exc=e)
+            self.log_error(f"❌ Failed to render preview video: {e}", exc=e)
+            import traceback
+            self.log_error(f"Traceback:\n{traceback.format_exc()}")
             return None
 
     def _generate_extendscript_execution_script(

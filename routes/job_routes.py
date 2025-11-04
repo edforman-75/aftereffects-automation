@@ -371,3 +371,80 @@ def unarchive_job(job_id: str):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@job_bp.route('/api/jobs/cleanup', methods=['POST'])
+def cleanup_jobs():
+    """
+    Delete all non-archived jobs from the database.
+
+    This is a utility endpoint for debugging and testing.
+    Use with caution as it will delete all active jobs!
+
+    Request JSON body:
+        {
+            "confirm": "DELETE_ALL_JOBS",  # Required confirmation
+            "include_archived": false      # Optional: also delete archived jobs
+        }
+    """
+    try:
+        from database import db_session
+        from database.models import Job, JobWarning, JobLog, JobAsset, Batch
+
+        data = request.get_json() or {}
+        confirmation = data.get('confirm', '')
+        include_archived = data.get('include_archived', False)
+
+        # Require confirmation
+        if confirmation != 'DELETE_ALL_JOBS':
+            return jsonify({
+                'success': False,
+                'error': 'Confirmation required. Set "confirm": "DELETE_ALL_JOBS" in request body.'
+            }), 400
+
+        container.main_logger.warning("=" * 80)
+        container.main_logger.warning("CLEANUP JOBS ENDPOINT CALLED")
+        container.main_logger.warning("This will delete jobs from the database!")
+        container.main_logger.warning("=" * 80)
+
+        # Query jobs to delete
+        query = db_session.query(Job)
+        if not include_archived:
+            query = query.filter((Job.archived == False) | (Job.archived == None))
+
+        jobs_to_delete = query.all()
+        job_count = len(jobs_to_delete)
+
+        container.main_logger.warning(f"Found {job_count} jobs to delete")
+
+        # Delete jobs (cascade will delete related warnings, logs, assets)
+        for job in jobs_to_delete:
+            container.main_logger.info(f"Deleting job: {job.job_id}")
+            db_session.delete(job)
+
+        # Also delete batches if requested
+        if include_archived:
+            batches = db_session.query(Batch).all()
+            batch_count = len(batches)
+            container.main_logger.warning(f"Deleting {batch_count} batches")
+            for batch in batches:
+                db_session.delete(batch)
+
+        db_session.commit()
+
+        container.main_logger.warning(f"Successfully deleted {job_count} jobs")
+        container.main_logger.warning("=" * 80)
+
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {job_count} jobs from database',
+            'jobs_deleted': job_count
+        })
+
+    except Exception as e:
+        db_session.rollback()
+        container.main_logger.error(f"Error cleaning up jobs: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

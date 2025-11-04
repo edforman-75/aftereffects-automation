@@ -137,6 +137,7 @@ class Job(Base):
 
     # Output
     final_aep_path = Column(Text)
+    comp_name = Column(String(255))  # After Effects composition name
 
     # Processing Data (JSON)
     stage1_results = Column(JSON)  # PSD/AEPX extraction results
