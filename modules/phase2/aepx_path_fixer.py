@@ -121,9 +121,21 @@ def fix_footage_paths(aepx_path: str, output_path: Optional[str] = None,
                 'message': 'No footage references found'
             }
 
-        # Read AEPX as text (easier for path replacement)
-        with open(aepx_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # Use safe file reading for large AEPX files
+        from core.file_utils import read_file_safe, get_file_size_mb
+
+        file_size = get_file_size_mb(aepx_path)
+        print(f"AEPX file size: {file_size:.1f}MB")
+
+        content, error = read_file_safe(aepx_path, encoding='utf-8', max_size_mb=100)
+        if error:
+            return {
+                'success': False,
+                'fixed_paths': {},
+                'missing_files': [],
+                'output_path': None,
+                'error': f'Cannot read AEPX file: {error}'
+            }
 
         # Process each reference
         for ref in references:

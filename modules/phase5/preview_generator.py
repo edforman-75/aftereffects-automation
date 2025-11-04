@@ -355,25 +355,32 @@ def extract_composition_names(aepx_path: str) -> list:
         # If no compositions found via XML parsing, try regex search
         if not composition_names:
             print(f"    Trying regex fallback...")
-            with open(aepx_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
 
-            import re
-            # Look for composition-like patterns
-            patterns = [
-                r'<Composition[^>]+name="([^"]+)"',
-                r'<Item[^>]+name="([^"]+)"[^>]+type="composition"',
-                r'name="([^"]+)"[^>]*>\s*<Composition',
-            ]
+            # Use safe file reading to handle large files
+            from core.file_utils import read_file_safe
 
-            for pattern in patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
-                for match in matches:
-                    if match and match not in composition_names:
-                        composition_names.append(match)
-                        print(f"    Found (regex): '{match}'")
+            content, error = read_file_safe(aepx_path, encoding='utf-8', max_size_mb=100)
 
-            print(f"    Regex found {len(composition_names)} composition(s)")
+            if error:
+                print(f"    ⚠️  Warning: Could not read file for regex search: {error}")
+                print(f"    Continuing without regex fallback...")
+            else:
+                import re
+                # Look for composition-like patterns
+                patterns = [
+                    r'<Composition[^>]+name="([^"]+)"',
+                    r'<Item[^>]+name="([^"]+)"[^>]+type="composition"',
+                    r'name="([^"]+)"[^>]*>\s*<Composition',
+                ]
+
+                for pattern in patterns:
+                    matches = re.findall(pattern, content, re.IGNORECASE)
+                    for match in matches:
+                        if match and match not in composition_names:
+                            composition_names.append(match)
+                            print(f"    Found (regex): '{match}'")
+
+                print(f"    Regex found {len(composition_names)} composition(s)")
 
         return composition_names
 
@@ -599,32 +606,35 @@ def prepare_temp_project(aepx_path: str, mappings: Dict[str, Any], temp_dir: str
     # Update AEPX to use new footage paths
     print("\nStep 3.6: Updating AEPX footage paths...")
     try:
-        # Read AEPX as text for path replacement
-        with open(temp_project, 'r', encoding='utf-8') as f:
-            aepx_content = f.read()
+        # Use safe file processing for large files
+        from core.file_utils import process_large_file_in_place, get_file_size_mb
+        import re
 
-        updated_count = 0
+        file_size = get_file_size_mb(temp_project)
+        print(f"  AEPX file size: {file_size:.1f}MB")
 
-        # Replace all mapped paths (both absolute and relative)
+        # Build replacements dictionary
+        replacements = {}
         for old_path, new_path in path_mapping.items():
-            # Replace in AEPX content (escape special regex chars)
-            import re
-            old_path_escaped = re.escape(old_path)
+            replacements[old_path] = new_path
 
-            # Count matches before replacing
-            matches = len(re.findall(old_path_escaped, aepx_content))
+        # Process file with automatic chunking for large files
+        success, error, updated_count = process_large_file_in_place(
+            temp_project,
+            replacements,
+            encoding='utf-8',
+            backup=True
+        )
 
-            if matches > 0:
-                aepx_content = re.sub(old_path_escaped, new_path, aepx_content)
-                print(f"  ✓ Updated: {os.path.basename(old_path)} ({matches} reference(s))")
-                updated_count += matches
+        if not success:
+            raise Exception(error)
 
-        # Write updated AEPX back
-        with open(temp_project, 'w', encoding='utf-8') as f:
-            f.write(aepx_content)
-
+        # Count and report updates per file
         if updated_count > 0:
             print(f"\n✅ Updated {updated_count} footage path(s) in AEPX")
+            # Report individual file updates
+            for old_path in path_mapping.keys():
+                print(f"  ✓ Updated: {os.path.basename(old_path)}")
         else:
             print("  (No paths needed updating)")
         print()
