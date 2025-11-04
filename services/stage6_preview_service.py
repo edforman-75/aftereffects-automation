@@ -195,34 +195,46 @@ class Stage6PreviewService(BaseService):
             with open(script_path, 'w', encoding='utf-8') as f:
                 f.write(script_content)
 
-            # Find After Effects executable
-            ae_path = self._find_after_effects()
-            if not ae_path:
-                self.log_error("After Effects not found")
-                return None
+            self.log_info(f"ExtendScript written to: {script_path}")
 
-            # Execute script with After Effects
-            # Using -s flag to run script silently
-            cmd = [ae_path, '-s', str(script_path)]
+            # Generate AppleScript to execute the ExtendScript in After Effects
+            applescript = self._generate_extendscript_execution_script(
+                str(script_path),
+                aepx_path,
+                str(output_aep_path)
+            )
 
-            self.log_info(f"Running command: {' '.join(cmd)}")
+            self.log_info("Generated AppleScript:")
+            self.log_info(applescript)
+
+            # Execute AppleScript
+            self.log_info("Running osascript to execute ExtendScript in After Effects...")
             result = subprocess.run(
-                cmd,
+                ['osascript', '-e', applescript],
                 capture_output=True,
                 text=True,
                 timeout=300  # 5 minute timeout
             )
 
-            if result.returncode == 0:
-                # Verify output file was created
-                if output_aep_path.exists():
-                    self.log_info(f"ExtendScript executed successfully: {output_aep_path}")
-                    return str(output_aep_path)
-                else:
-                    self.log_error(f"ExtendScript ran but output file not found: {output_aep_path}")
-                    return None
-            else:
+            self.log_info(f"osascript return code: {result.returncode}")
+            self.log_info(f"osascript stdout: {result.stdout}")
+            if result.stderr:
+                self.log_warning(f"osascript stderr: {result.stderr}")
+
+            if result.returncode != 0:
                 self.log_error(f"ExtendScript execution failed: {result.stderr}")
+                return None
+
+            # Verify output file was created
+            if output_aep_path.exists():
+                file_size = output_aep_path.stat().st_size
+                self.log_info(
+                    f"ExtendScript executed successfully: {output_aep_path} "
+                    f"({file_size / 1024:.2f} KB)"
+                )
+                return str(output_aep_path)
+            else:
+                self.log_error(f"ExtendScript ran but output file not found: {output_aep_path}")
                 return None
 
         except subprocess.TimeoutExpired:
@@ -231,6 +243,63 @@ class Stage6PreviewService(BaseService):
         except Exception as e:
             self.log_error(f"Failed to execute ExtendScript: {e}", exc=e)
             return None
+
+    def _generate_extendscript_execution_script(
+        self,
+        script_path: str,
+        aepx_path: str,
+        output_aep_path: str
+    ) -> str:
+        """
+        Generate AppleScript to execute ExtendScript in After Effects.
+
+        Args:
+            script_path: Path to the ExtendScript (.jsx) file
+            aepx_path: Path to the AEPX template to open
+            output_aep_path: Path where the populated AEP should be saved
+
+        Returns:
+            AppleScript code as a string
+        """
+        # Escape paths for AppleScript (escape backslashes and quotes)
+        script_path_escaped = script_path.replace('\\', '\\\\').replace('"', '\\"')
+        aepx_path_escaped = aepx_path.replace('\\', '\\\\').replace('"', '\\"')
+        output_aep_path_escaped = output_aep_path.replace('\\', '\\\\').replace('"', '\\"')
+
+        applescript = f'''
+        tell application "Adobe After Effects 2025"
+            try
+                -- Open the AEPX template
+                open POSIX file "{aepx_path_escaped}"
+
+                -- Execute the ExtendScript using DoScriptFile
+                DoScriptFile "{script_path_escaped}"
+
+                -- Wait for script to complete
+                delay 2
+
+                -- Save the populated project as AEP
+                set outputFile to POSIX file "{output_aep_path_escaped}"
+                save in outputFile
+
+                -- Wait for save to complete
+                delay 2
+
+                -- Close the project
+                close
+
+                return "success"
+            on error errMsg
+                -- Try to close if still open
+                try
+                    close
+                end try
+                error "Failed to execute ExtendScript: " & errMsg
+            end try
+        end tell
+        '''
+
+        return applescript
 
     def _render_preview_video(
         self,
