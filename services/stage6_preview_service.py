@@ -339,23 +339,28 @@ class Stage6PreviewService(BaseService):
         output_path: Path
     ) -> Optional[str]:
         """
-        Export PSD as flattened preview image.
+        Export PSD as flattened preview image with multiple fallback methods.
 
-        Note: psd-tools library may not support PSD v8 format.
-        This method is optional and should not block the preview generation.
+        Tries the following methods in order:
+        1. psd-tools library (supports PSD v1-7)
+        2. ImageMagick conversion for PSD v8 + psd-tools retry
+        3. macOS sips command
+        4. Pillow (PIL) library
+
+        Note: This method is optional and should not block preview generation.
 
         Args:
             psd_path: Path to PSD file
             output_path: Path for output PNG
 
         Returns:
-            Path to exported image, or None if failed
+            Path to exported image, or None if all methods fail
         """
-        try:
-            self.log_info(f"Attempting to export PSD preview: {psd_path}")
-            self.log_info(f"PSD file exists: {os.path.exists(psd_path)}")
+        self.log_info(f"Attempting to export PSD preview: {psd_path}")
+        self.log_info(f"PSD file exists: {os.path.exists(psd_path)}")
 
-            # Open PSD file
+        # Method 1: Try psd-tools library
+        try:
             psd = PSDImage.open(psd_path)
             self.log_info(f"PSD opened successfully - Version: {psd.version}")
 
@@ -369,30 +374,117 @@ class Stage6PreviewService(BaseService):
             self.log_info(f"✅ PSD preview saved: {output_path}")
             return str(output_path)
 
+        except AssertionError as e:
+            # Handle PSD v8 format or version incompatibility
+            if "Invalid version" in str(e) or "version" in str(e).lower():
+                version_match = str(e).split("version ")[-1] if "version" in str(e) else "unknown"
+                self.log_warning(f"Detected PSD version {version_match} (unsupported by psd-tools)")
+                self.log_info("Method 2: Attempting ImageMagick conversion...")
+
+                # Method 2: Try ImageMagick conversion for PSD v8
+                converted_path = self._convert_psd_with_imagemagick(psd_path)
+                if converted_path and converted_path != psd_path:
+                    try:
+                        psd = PSDImage.open(converted_path)
+                        composite = psd.composite()
+                        composite.save(str(output_path), 'PNG')
+                        self.log_info(f"✅ PSD preview saved after ImageMagick conversion: {output_path}")
+                        return str(output_path)
+                    except Exception as conv_error:
+                        self.log_warning(f"ImageMagick conversion succeeded but psd-tools failed: {conv_error}")
+            else:
+                self.log_warning(f"PSD preview export failed with psd-tools: {e}")
+
         except Exception as e:
             self.log_warning(f"PSD preview export failed with psd-tools: {e}")
-            self.log_info("Trying fallback method using macOS 'sips' command...")
 
-            # Fallback: Try using macOS sips command
-            try:
-                result = subprocess.run(
-                    ['sips', '-s', 'format', 'png', psd_path, '--out', str(output_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
+        # Method 3: Try macOS sips command
+        self.log_info("Method 3: Trying macOS 'sips' command...")
+        try:
+            result = subprocess.run(
+                ['sips', '-s', 'format', 'png', psd_path, '--out', str(output_path)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
 
-                if result.returncode == 0 and output_path.exists():
-                    self.log_info(f"✅ PSD preview saved using sips: {output_path}")
-                    return str(output_path)
-                else:
-                    self.log_warning(f"sips conversion failed: {result.stderr}")
-                    return None
+            if result.returncode == 0 and output_path.exists():
+                self.log_info(f"✅ PSD preview saved using sips: {output_path}")
+                return str(output_path)
+            else:
+                self.log_warning(f"sips conversion failed: {result.stderr}")
 
-            except Exception as sips_error:
-                self.log_warning(f"sips fallback also failed: {sips_error}")
-                self.log_info("PSD preview unavailable - continuing without it")
+        except FileNotFoundError:
+            self.log_info("sips command not available (not on macOS)")
+        except Exception as sips_error:
+            self.log_warning(f"sips fallback failed: {sips_error}")
+
+        # Method 4: Try Pillow (PIL) as final fallback
+        self.log_info("Method 4: Trying Pillow (PIL) library as final fallback...")
+        try:
+            from PIL import Image
+
+            img = Image.open(psd_path)
+            # Convert to RGB if necessary (PSD might have alpha channel)
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGB')
+
+            img.save(str(output_path), 'PNG')
+
+            if output_path.exists():
+                self.log_info(f"✅ PSD preview saved using Pillow: {output_path}")
+                return str(output_path)
+
+        except Exception as pillow_error:
+            self.log_warning(f"Pillow fallback failed: {pillow_error}")
+
+        # All methods failed
+        self.log_warning("⚠️  All PSD export methods failed. PSD preview unavailable - continuing without it")
+        return None
+
+    def _convert_psd_with_imagemagick(self, psd_path: str) -> Optional[str]:
+        """
+        Convert PSD to compatible version using ImageMagick.
+
+        Args:
+            psd_path: Path to original PSD file
+
+        Returns:
+            Path to converted PSD, or None if conversion failed
+        """
+        import tempfile
+
+        try:
+            # Create a temporary directory for converted files
+            temp_dir = Path(tempfile.gettempdir()) / "psd_conversions"
+            temp_dir.mkdir(exist_ok=True)
+
+            converted_path = temp_dir / f"converted_{Path(psd_path).name}"
+
+            # Use ImageMagick to convert PSD
+            result = subprocess.run(
+                ['convert', psd_path, '-define', 'psd:preserve-layers=true', str(converted_path)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode == 0 and converted_path.exists():
+                self.log_info(f"✅ ImageMagick converted PSD to compatible version: {converted_path.name}")
+                return str(converted_path)
+            else:
+                self.log_warning(f"ImageMagick conversion failed: {result.stderr}")
                 return None
+
+        except FileNotFoundError:
+            self.log_info("ImageMagick 'convert' command not found - skipping conversion")
+            return None
+        except subprocess.TimeoutExpired:
+            self.log_warning("ImageMagick conversion timed out")
+            return None
+        except Exception as e:
+            self.log_warning(f"ImageMagick conversion error: {e}")
+            return None
 
     def _execute_extendscript(
         self,
