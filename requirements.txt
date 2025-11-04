@@ -1,3 +1,10 @@
+# After Effects Automation Tool - Requirements
+# Platform: macOS 10.15+ (Catalina and newer)
+# Python: 3.10+
+#
+# This tool is designed exclusively for macOS deployment and uses
+# macOS-specific features like AppleScript and the menu bar app.
+
 # Core Dependencies
 Flask==3.0.0
 flask-cors==4.0.0
@@ -13,7 +20,7 @@ fonttools>=4.38.0
 # ML/NLP for Layer Matching
 sentence-transformers>=2.2.0
 
-# Mac Menu Bar App (macOS only)
+# Mac Menu Bar App (macOS-specific)
 rumps>=0.4.0
 
 # XML Parsing (for AEPX files)

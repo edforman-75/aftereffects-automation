@@ -138,11 +138,7 @@ def fix_footage_paths(aepx_path: str, output_path: Optional[str] = None,
                 if os.path.exists(footage_path):
                     # Convert to relative path from AEPX location
                     aepx_dir = os.path.dirname(os.path.abspath(aepx_path))
-                    try:
-                        new_path = os.path.relpath(footage_path, aepx_dir)
-                    except ValueError:
-                        # Different drives on Windows, use absolute path
-                        new_path = os.path.abspath(footage_path)
+                    new_path = os.path.relpath(footage_path, aepx_dir)
                 else:
                     missing_files.append(filename)
             else:
@@ -160,10 +156,7 @@ def fix_footage_paths(aepx_path: str, output_path: Optional[str] = None,
 
                 for search_path in search_paths:
                     if os.path.exists(search_path):
-                        try:
-                            new_path = os.path.relpath(search_path, aepx_dir)
-                        except ValueError:
-                            new_path = os.path.abspath(search_path)
+                        new_path = os.path.relpath(search_path, aepx_dir)
                         break
 
                 if not new_path:
@@ -307,23 +300,17 @@ def _extract_paths_from_text(text: str) -> List[str]:
     """Extract file paths from text content."""
     paths = []
 
-    # Pattern for absolute paths
-    # Windows: C:\path\to\file
-    # macOS/Linux: /path/to/file
-    patterns = [
-        r'[A-Z]:\\[\w\s\-\.\\/]+\.\w+',  # Windows
-        r'/[\w\s\-\./]+\.\w+',            # Unix-like
-    ]
+    # Pattern for absolute paths (macOS/Unix)
+    pattern = r'/[\w\s\-\./]+\.\w+'
 
-    for pattern in patterns:
-        matches = re.findall(pattern, text)
-        paths.extend(matches)
+    matches = re.findall(pattern, text)
+    paths.extend(matches)
 
     return paths
 
 
 def _is_valid_file_path(filepath: str) -> bool:
-    """Check if string looks like a valid file path."""
+    """Check if string looks like a valid file path (macOS/Unix)."""
     # Filter out XML namespaces and URLs
     if filepath.startswith('//') or filepath.startswith('http'):
         return False
@@ -337,11 +324,8 @@ def _is_valid_file_path(filepath: str) -> bool:
     if not ext or len(ext) > 5:  # Extensions shouldn't be too long
         return False
 
-    # Must be absolute path
-    if filepath.startswith('/') or filepath.startswith('\\') or ':' in filepath[:3]:
-        return True
-
-    return False
+    # Must be absolute path (starting with /)
+    return filepath.startswith('/')
 
 
 if __name__ == '__main__':

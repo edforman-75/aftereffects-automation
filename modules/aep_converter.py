@@ -1,7 +1,8 @@
 """
 AEP to AEPX Converter
 
-Automatically detect and convert .aep files to .aepx format using AppleScript or aerender.
+Automatically detect and convert .aep files to .aepx format using AppleScript on macOS.
+This module is designed for macOS-only deployment.
 """
 
 import os
@@ -33,7 +34,7 @@ class AEPConverter:
 
     def convert_aep_to_aepx_applescript(self, aep_path: str, output_path: Optional[str] = None) -> dict:
         """
-        Convert AEP to AEPX using AppleScript (Mac only)
+        Convert AEP to AEPX using AppleScript on macOS.
 
         Args:
             aep_path: Path to .aep file
@@ -127,9 +128,9 @@ class AEPConverter:
 
     def convert_aep_to_aepx_aerender(self, aep_path: str, output_path: Optional[str] = None) -> dict:
         """
-        Convert AEP to AEPX using aerender command line (cross-platform)
+        Convert AEP to AEPX using aerender command line on macOS.
 
-        Note: This requires a render script that saves as AEPX
+        This method uses a JSX script executed via aerender.
 
         Args:
             aep_path: Path to .aep file

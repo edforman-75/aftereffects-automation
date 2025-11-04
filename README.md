@@ -38,9 +38,11 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
 ## What You'll Need
 
 ### On Your Computer:
-- A Mac or Windows computer (Mac is easier to set up)
-- After Effects installed (any version from 2020 or newer)
+- A Mac computer running macOS 10.15 or newer
+- After Effects installed (version 2020 or newer recommended)
 - About 30 minutes for first-time setup
+
+**Note:** This tool is designed exclusively for macOS deployment.
 
 ### Your Files:
 - Photoshop files (.psd) - Your designs
@@ -72,7 +74,7 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
    - Click it and select "Start Server"
    - Your browser opens automatically!
 
-**That's it! The rest of this guide is for Windows users or if you prefer the manual method.**
+**That's it! If you prefer the manual method, continue reading below.**
 
 ---
 
@@ -86,31 +88,24 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
 
 2. **Install Python** (the engine that runs the tool):
 
-   **Mac users:**
    - Open **Terminal** (it's in Applications > Utilities)
-   - Copy and paste this: `brew install python3`
-   - Press Enter and wait (takes 2-3 minutes)
-
-   **Windows users:**
-   - Go to [python.org/downloads](https://python.org/downloads)
-   - Download Python 3.8 or newer
-   - Run the installer
-   - ✅ Check the box that says "Add Python to PATH"
-   - Click "Install Now"
+   - If you have Homebrew installed: `brew install python3`
+   - Or download from [python.org/downloads](https://python.org/downloads) and install Python 3.10 or newer
+   - Wait 2-3 minutes for installation
 
 3. **Install the tool parts:**
-   - Open Terminal (Mac) or Command Prompt (Windows)
+   - Open Terminal
    - Type `cd ` (that's cd with a space after it)
    - Drag the unzipped folder into the Terminal window (this types the path for you!)
    - Press Enter
-   - Type: `pip install -r requirements.txt`
+   - Type: `pip3 install -r requirements.txt`
    - Press Enter and wait (takes 2-3 minutes)
 
 **That's the hard part done!** ✅ You never have to do this again.
 
 ### Step 2: Start the Tool
 
-1. In Terminal/Command Prompt, make sure you're in the tool folder (see Step 1.3)
+1. In Terminal, make sure you're in the tool folder (see Step 1.3)
 2. Type: `python3 web_app.py`
 3. Press Enter
 4. You'll see: `Running on http://127.0.0.1:5001`
@@ -124,7 +119,7 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
 3. Press Enter
 4. You'll see the main screen with buttons!
 
-**Important:** Keep the Terminal/Command Prompt window open while you use the tool. When you're done, press `Ctrl+C` in that window to stop the tool.
+**Important:** Keep the Terminal window open while you use the tool. When you're done, press `Ctrl+C` in that window to stop the tool.
 
 ---
 
@@ -345,11 +340,12 @@ My Project/
 
 **"Tool won't start"**
 - Make sure Python is installed: type `python3 --version` in Terminal
-- You should see something like `Python 3.8.10` or higher
+- You should see `Python 3.10` or higher
 
 **"Can't upload files"**
 - Make sure files aren't open in Photoshop or After Effects
 - Check that files are actually .psd and .aepx (not .psdx or .aep)
+- Ensure you have read/write permissions for the project directory
 
 **"Weird sizing"**
 - Your PSD and template are different dimensions
@@ -432,8 +428,9 @@ My Project/
 This tool was created because spending 100 hours copying and pasting layers is a waste of creative talent. You should be designing, not doing robot work.
 
 **Version:** 1.0.0
+**Platform:** macOS 10.15+ (Catalina and newer)
 **Status:** ✅ Production Ready
-**Last Updated:** January 2025
+**Last Updated:** November 2025
 
 ---
 

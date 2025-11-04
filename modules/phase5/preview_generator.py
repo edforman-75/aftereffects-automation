@@ -1,7 +1,8 @@
 """
 Module 5.1: Video Preview Generator
 
-Generate low-resolution video previews using After Effects command-line rendering.
+Generate low-resolution video previews using After Effects command-line rendering on macOS.
+This module is designed for macOS-only deployment.
 """
 
 import os
@@ -18,12 +19,11 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
-# Default aerender paths for different platforms
-AERENDER_PATHS = {
-    'darwin': '/Applications/Adobe After Effects 2025/aerender',
-    'darwin_2024': '/Applications/Adobe After Effects 2024/aerender',
-    'win32': 'C:\\Program Files\\Adobe\\Adobe After Effects 2025\\Support Files\\aerender.exe',
-}
+# Default aerender paths for macOS
+AERENDER_PATHS = [
+    '/Applications/Adobe After Effects 2025/aerender',
+    '/Applications/Adobe After Effects 2024/aerender',
+]
 
 DEFAULT_OPTIONS = {
     'resolution': 'half',    # half, third, quarter
@@ -81,23 +81,14 @@ def make_ae_compatible_png(png_path: str, temp_dir: str) -> str:
 
 def check_aerender_available() -> Optional[str]:
     """
-    Check if aerender is available on the system.
+    Check if aerender is available on macOS.
 
     Returns:
         Path to aerender if found, None otherwise
     """
-    import platform
-    system = platform.system().lower()
-
-    # Check common paths
-    if system == 'darwin':
-        for key in ['darwin', 'darwin_2024']:
-            path = AERENDER_PATHS.get(key)
-            if path and os.path.exists(path):
-                return path
-    elif system == 'windows':
-        path = AERENDER_PATHS.get('win32')
-        if path and os.path.exists(path):
+    # Check common macOS paths
+    for path in AERENDER_PATHS:
+        if os.path.exists(path):
             return path
 
     # Try finding in PATH
