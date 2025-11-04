@@ -127,6 +127,7 @@ class Job(Base):
     stage6_completed_by = Column(String(100))
     stage6_preview_video_path = Column(String(500))  # Path to preview video render
     stage6_psd_preview_path = Column(String(500))  # Path to PSD preview image
+    stage6_render_frame_path = Column(String(500))  # Path to rendered frame image for display
     stage6_approved = Column(Boolean, default=False)  # User approval status
     stage6_approval_notes = Column(Text)  # User feedback/notes
     stage6_downloaded_at = Column(DateTime)  # When user downloaded final files

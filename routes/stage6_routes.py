@@ -360,7 +360,8 @@ def preview_status(job_id: str) -> Tuple[Response, int]:
 
             has_psd_preview = bool(job.stage6_psd_preview_path)
             has_video_preview = bool(job.stage6_preview_video_path)
-            has_both = has_psd_preview and has_video_preview
+            has_render_frame = bool(job.stage6_render_frame_path)
+            has_both = has_psd_preview and has_render_frame
 
             return jsonify({
                 'success': True,
@@ -369,9 +370,11 @@ def preview_status(job_id: str) -> Tuple[Response, int]:
                 'status': job.status,
                 'has_psd_preview': has_psd_preview,
                 'has_video_preview': has_video_preview,
+                'has_render_frame': has_render_frame,
                 'preview_ready': has_both,
                 'psd_preview_path': job.stage6_psd_preview_path if has_psd_preview else None,
                 'video_preview_path': job.stage6_preview_video_path if has_video_preview else None,
+                'render_frame_path': job.stage6_render_frame_path if has_render_frame else None,
                 'approved': job.stage6_approved or False,
                 'approval_notes': job.stage6_approval_notes
             })
@@ -417,6 +420,9 @@ def serve_preview_file(job_id: str, file_type: str) -> Tuple[Response, int]:
             elif file_type == 'video':
                 file_path = job.stage6_preview_video_path
                 mimetype = 'video/mp4'
+            elif file_type == 'render':
+                file_path = job.stage6_render_frame_path
+                mimetype = 'image/png'
             else:
                 return jsonify({
                     'success': False,
@@ -482,7 +488,7 @@ def approve_preview(job_id: str) -> Tuple[Response, int]:
                 }), 404
 
             # Verify preview exists
-            if not job.stage6_psd_preview_path or not job.stage6_preview_video_path:
+            if not job.stage6_psd_preview_path or not job.stage6_render_frame_path:
                 return jsonify({
                     'success': False,
                     'error': 'Preview not generated yet'

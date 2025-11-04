@@ -239,9 +239,23 @@ class Stage6PreviewService(BaseService):
                 self.log_error(error_msg, job_id=job.job_id)
                 return False, error_msg, None
 
-            # Step 4: Update job with preview paths
+            # Step 5: Extract a full-quality frame from the rendered video for display
+            self.log_info(f"Job {job.job_id}: Extracting render frame from video")
+            render_frame_path = self._extract_video_frame(
+                video_preview_path,
+                preview_dir / f'{job.job_id}_render_frame.png'
+            )
+
+            if not render_frame_path:
+                self.log_warning(
+                    f"Job {job.job_id}: Failed to extract render frame. "
+                    "Continuing without render frame image..."
+                )
+
+            # Step 6: Update job with preview paths
             job.stage6_psd_preview_path = str(psd_preview_path)
             job.stage6_preview_video_path = str(video_preview_path)
+            job.stage6_render_frame_path = str(render_frame_path) if render_frame_path else None
             job.status = 'awaiting_approval'  # Ready for human approval
             session.commit()
 
@@ -253,6 +267,7 @@ class Stage6PreviewService(BaseService):
             return True, None, {
                 'psd_preview_path': str(psd_preview_path),
                 'video_preview_path': str(video_preview_path),
+                'render_frame_path': str(render_frame_path) if render_frame_path else None,
                 'preview_url': f'/preview/{job.job_id}'
             }
 
@@ -521,6 +536,67 @@ class Stage6PreviewService(BaseService):
             self.log_error(f"❌ Exception during ExtendScript execution: {e}", exc=e)
             import traceback
             self.log_error(f"Traceback:\n{traceback.format_exc()}")
+            return None
+
+    def _extract_video_frame(
+        self,
+        video_path: str,
+        output_image_path: Path,
+        time_seconds: float = 0.5
+    ) -> Optional[str]:
+        """
+        Extract a single frame from video as a high-quality PNG image.
+
+        Args:
+            video_path: Path to video file
+            output_image_path: Path for output PNG image
+            time_seconds: Time in seconds to extract frame (default: 0.5s)
+
+        Returns:
+            Path to extracted image, or None if failed
+        """
+        try:
+            self.log_info(f"Extracting frame from video: {video_path} at {time_seconds}s")
+
+            # Build ffmpeg command to extract a single frame
+            # -ss: seek to time position
+            # -i: input file
+            # -vframes 1: extract only 1 frame
+            # -q:v 2: high quality (1-31, lower is better)
+            cmd = [
+                'ffmpeg',
+                '-ss', str(time_seconds),
+                '-i', video_path,
+                '-vframes', '1',
+                '-q:v', '2',
+                '-y',  # Overwrite output file if exists
+                str(output_image_path)
+            ]
+
+            self.log_info(f"Running ffmpeg: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            if result.returncode == 0 and output_image_path.exists():
+                file_size = output_image_path.stat().st_size
+                self.log_info(
+                    f"Frame extracted successfully: {output_image_path} "
+                    f"({file_size / 1024:.2f} KB)"
+                )
+                return str(output_image_path)
+            else:
+                self.log_error(f"ffmpeg failed: {result.stderr}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            self.log_error("Frame extraction timed out after 60 seconds")
+            return None
+        except Exception as e:
+            self.log_error(f"Failed to extract video frame: {e}", exc=e)
             return None
 
     def _render_preview_video(

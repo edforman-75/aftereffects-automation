@@ -393,7 +393,7 @@
 
         <div class="instructions">
             <h3>Review & Approve</h3>
-            <p>Compare the original PSD design (left) with the rendered After Effects output (right). If everything looks correct, approve to complete the job. If there are issues, you can reject and return to an earlier stage for corrections.</p>
+            <p>Compare the original PSD design (left) with the full rendered After Effects frame (right). The right image shows a high-quality frame from your final video render. If everything looks correct, approve to complete the job. If there are issues, you can reject and return to an earlier stage for corrections.</p>
         </div>
 
         <div id="loading-section" class="loading">
@@ -420,11 +420,9 @@
                         </div>
                     </div>
                     <div class="preview-panel">
-                        <div class="preview-header">After Effects Render</div>
+                        <div class="preview-header">After Effects Full Render</div>
                         <div class="preview-content">
-                            <video id="video-preview" class="preview-video" controls>
-                                Your browser does not support the video tag.
-                            </video>
+                            <img id="render-preview" class="preview-image" alt="Render Preview">
                         </div>
                     </div>
                 </div>
@@ -524,7 +522,7 @@
             if (data.preview_ready) {
                 // Show comparison
                 document.getElementById('psd-preview').src = `/api/job/${jobId}/preview-file/psd`;
-                document.getElementById('video-preview').src = `/api/job/${jobId}/preview-file/video`;
+                document.getElementById('render-preview').src = `/api/job/${jobId}/preview-file/render`;
                 document.getElementById('comparison-section').style.display = 'block';
             } else {
                 // Show generate button
