@@ -71,11 +71,19 @@ class JobService:
 
         # Create job records
         for job_data in jobs:
+            # Auto-generate output_name if not provided
+            output_name = job_data.get('output_name')
+            if not output_name:
+                # Determine extension from template file
+                from pathlib import Path
+                template_ext = Path(job_data['aepx_path']).suffix
+                output_name = f"{batch_id}_{job_data['job_id']}{template_ext}"
+
             job = Job(
                 job_id=job_data['job_id'],
                 psd_path=job_data['psd_path'],
                 aepx_path=job_data['aepx_path'],
-                output_name=job_data['output_name'],
+                output_name=output_name,
                 client_name=job_data.get('client_name'),
                 project_name=job_data.get('project_name'),
                 priority=job_data.get('priority', 'medium'),

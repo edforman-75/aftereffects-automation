@@ -26,8 +26,8 @@ class BatchValidator:
 
     def __init__(self, logger=None):
         self.logger = logger
-        self.required_columns = ['job_id', 'psd_path', 'aepx_path', 'output_name']
-        self.optional_columns = ['client_name', 'project_name', 'priority', 'notes']
+        self.required_columns = ['job_id', 'psd_path', 'aepx_path']
+        self.optional_columns = ['output_name', 'client_name', 'project_name', 'priority', 'notes']
         self.valid_priorities = ['high', 'medium', 'low']
 
     def log_info(self, message: str):
@@ -223,11 +223,9 @@ class BatchValidator:
             if aepx_validation:
                 errors.append(aepx_validation)
 
-        # Validate output_name
+        # Validate output_name (optional - will be auto-generated if not provided)
         output_name = row.get('output_name', '').strip()
-        if not output_name:
-            errors.append("Missing output_name")
-        elif not self._is_valid_filename(output_name):
+        if output_name and not self._is_valid_filename(output_name):
             errors.append(f"Invalid output_name: {output_name}")
 
         # Validate priority (optional)
@@ -339,7 +337,7 @@ class BatchValidator:
             'job_id': row['job_id'].strip(),
             'psd_path': row['psd_path'].strip(),
             'aepx_path': row['aepx_path'].strip(),
-            'output_name': row['output_name'].strip(),
+            'output_name': row.get('output_name', '').strip() or None,
             'client_name': row.get('client_name', '').strip() or None,
             'project_name': row.get('project_name', '').strip() or None,
             'priority': row.get('priority', 'medium').strip().lower(),
