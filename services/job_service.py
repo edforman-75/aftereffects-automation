@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from database.models import Job, JobWarning, JobLog, JobAsset, Batch
 from database import db_session
+from services.folder_manager import folder_manager
 
 
 class JobService:
@@ -69,6 +70,15 @@ class JobService:
         )
         db_session.add(batch)
 
+        # Set up batch folder if hierarchical folders are enabled
+        if len(jobs) > 0:
+            first_client = jobs[0].get('client_name', 'default_client')
+            try:
+                folder_manager.setup_batch_folder(first_client, batch_id)
+                self.log_info(f"Created folder structure for batch {batch_id}")
+            except Exception as e:
+                self.log_error(f"Failed to create batch folder: {str(e)}")
+
         # Create job records
         for job_data in jobs:
             job = Job(
@@ -88,6 +98,14 @@ class JobService:
             )
             db_session.add(job)
 
+            # Set up job folder structure if hierarchical folders are enabled
+            try:
+                client_name = job_data.get('client_name', 'default_client')
+                folder_manager.setup_job_folders(client_name, batch_id, job_data['job_id'])
+                self.log_info(f"Created folder structure for job {job_data['job_id']}")
+            except Exception as e:
+                self.log_error(f"Failed to create job folder for {job_data['job_id']}: {str(e)}")
+
         db_session.commit()
 
         print(f"✅ Created batch {batch_id} with {len(jobs)} jobs")
@@ -98,6 +116,19 @@ class JobService:
     def get_job(self, job_id: str) -> Optional[Job]:
         """Get job by ID."""
         return db_session.query(Job).filter_by(job_id=job_id).first()
+
+    def get_job_folders(self, job: Job):
+        """
+        Get folder paths for a job.
+
+        Args:
+            job: Job model instance
+
+        Returns:
+            FolderPaths object with all paths for the job
+        """
+        client_name = job.client_name or 'default_client'
+        return folder_manager.get_job_paths(client_name, job.batch_id, job.job_id)
 
     def get_jobs_for_stage(
         self,

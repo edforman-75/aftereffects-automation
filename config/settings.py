@@ -85,6 +85,36 @@ class WorkflowSettings:
 
 
 @dataclass
+class FolderOrganizationSettings:
+    """
+    Folder hierarchy and organization settings.
+
+    Controls how files are organized in the file system:
+    - Hierarchical mode: client_name/batch_id/job_id/
+    - Flat mode: uses traditional single-level directories
+
+    Folder structure within each job:
+    - assets/      # PSD, AEPX input files
+    - previews/    # Generated preview videos and images
+    - renders/     # Final render outputs
+    - scripts/     # Generated ExtendScript files
+    - logs/        # Job-specific logs
+    """
+    use_hierarchical_folders: bool = True  # Use client/batch/job hierarchy
+    base_output_path: str = 'projects'  # Base path for all organized projects
+    sanitize_folder_names: bool = True  # Remove special characters from folder names
+    create_job_subfolders: bool = True  # Create subfolders within each job (assets, previews, etc.)
+    max_folder_name_length: int = 100  # Maximum length for folder names
+
+    # Subfolder names within each job directory
+    assets_subfolder: str = 'assets'
+    previews_subfolder: str = 'previews'
+    renders_subfolder: str = 'renders'
+    scripts_subfolder: str = 'scripts'
+    logs_subfolder: str = 'logs'
+
+
+@dataclass
 class Settings:
     """
     Application settings with validation and persistence.
@@ -102,6 +132,7 @@ class Settings:
     file_validation: FileValidationSettings
     advanced: AdvancedSettings
     workflow: WorkflowSettings
+    folder_organization: FolderOrganizationSettings
 
     def __init__(self):
         self.directories = DirectorySettings()
@@ -110,6 +141,7 @@ class Settings:
         self.file_validation = FileValidationSettings()
         self.advanced = AdvancedSettings()
         self.workflow = WorkflowSettings()
+        self.folder_organization = FolderOrganizationSettings()
 
     @classmethod
     def load(cls, config_path='config.json') -> 'Settings':
@@ -230,6 +262,12 @@ class Settings:
             defaults.update(data['workflow'])
             instance.workflow = WorkflowSettings(**defaults)
 
+        # Load folder organization settings - preserve existing, use defaults for new fields
+        if 'folder_organization' in data:
+            defaults = asdict(instance.folder_organization)
+            defaults.update(data['folder_organization'])
+            instance.folder_organization = FolderOrganizationSettings(**defaults)
+
         # Save if migration occurred to update file with new format
         if migrated:
             instance.save(config_path)
@@ -255,7 +293,8 @@ class Settings:
             'preview_defaults': asdict(self.preview_defaults),
             'file_validation': fv_dict,
             'advanced': asdict(self.advanced),
-            'workflow': asdict(self.workflow)
+            'workflow': asdict(self.workflow),
+            'folder_organization': asdict(self.folder_organization)
         }
 
         with open(config_path, 'w') as f:
@@ -334,6 +373,17 @@ class Settings:
         if not (1 <= self.advanced.max_file_size_mb <= 5000):
             return False, "Max file size must be between 1-5000 MB"
 
+        # Validate folder organization settings
+        if self.folder_organization.use_hierarchical_folders:
+            base_path = self.folder_organization.base_output_path
+            try:
+                os.makedirs(base_path, exist_ok=True)
+            except Exception as e:
+                return False, f"Cannot create base output path '{base_path}': {str(e)}"
+
+        if not (10 <= self.folder_organization.max_folder_name_length <= 255):
+            return False, "Max folder name length must be between 10-255 characters"
+
         return True, None
 
     def to_dict(self) -> dict:
@@ -355,7 +405,8 @@ class Settings:
             'preview_defaults': asdict(self.preview_defaults),
             'file_validation': fv_dict,
             'advanced': asdict(self.advanced),
-            'workflow': asdict(self.workflow)
+            'workflow': asdict(self.workflow),
+            'folder_organization': asdict(self.folder_organization)
         }
 
 
