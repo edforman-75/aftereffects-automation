@@ -1,0 +1,20 @@
+[Unit]
+Description=After Effects Automation Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/aftereffects-automation
+ExecStart=/usr/bin/python3 /home/%i/aftereffects-automation/web_app.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/%i/aftereffects-automation/logs/server.log
+StandardError=append:/home/%i/aftereffects-automation/logs/server.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

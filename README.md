@@ -4,6 +4,16 @@
 
 ---
 
+## 🎉 NEW: No Terminal Required!
+
+**Prefer to avoid the terminal?** We now have a completely terminal-free setup!
+
+👉 **[Click here for Terminal-Free Setup Guide](SETUP_NO_TERMINAL.md)** 👈
+
+Just double-click Python files and use the web interface for everything!
+
+---
+
 ## What This Tool Does (In Simple Terms)
 
 **Before this tool:** You spent hours manually copying layers from Photoshop into After Effects templates, fixing positions, adding expressions, and adjusting for different screen sizes.
@@ -53,7 +63,18 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
 
 **Don't worry if these steps seem unfamiliar - we'll walk through each one with pictures.**
 
-### Mac Users: Even Easier Setup! 🎉
+### 🆕 Option 1: Terminal-Free Setup (Easiest!) ⭐⭐⭐
+
+**Prefer not to use the terminal? No problem!**
+
+1. **Install Python** from [python.org/downloads](https://python.org/downloads)
+2. **Double-click** `install_dependencies.py` (installs everything)
+3. **Double-click** `start_server.py` (starts the server)
+4. **Browser opens automatically** - start using the tool!
+
+**For more details:** See [Terminal-Free Setup Guide](SETUP_NO_TERMINAL.md)
+
+### Option 2: Mac Users - Automated Setup 🎉
 
 **If you're on a Mac, we have a special one-time setup that does everything for you:**
 
@@ -75,6 +96,10 @@ You have 50 player graphics to make for a basketball game. Instead of spending 2
 **That's it! The rest of this guide is for Windows users or if you prefer the manual method.**
 
 ---
+
+### Option 3: Manual Terminal Setup (All Platforms)
+
+**For users comfortable with the terminal:**
 
 ### Step 1: Get the Tool on Your Computer
 
