@@ -186,32 +186,114 @@
     <div id="upload-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Upload Batch CSV</h2>
+                <h2>Create Batch</h2>
                 <button class="close-btn" onclick="closeUploadModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="upload-form" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="csv-file">Select CSV File:</label>
-                        <input type="file" id="csv-file" name="csv_file" accept=".csv" required>
-                        <div class="file-info">
-                            <small>Format: job_id, psd_path, aepx_path, output_name, client_name, project_name, priority, notes</small>
+                <!-- Mode Tabs -->
+                <div class="upload-mode-tabs">
+                    <button class="tab-btn active" data-mode="csv" onclick="switchUploadMode('csv')">
+                        📄 Upload CSV
+                    </button>
+                    <button class="tab-btn" data-mode="files" onclick="switchUploadMode('files')">
+                        📁 Build from Files
+                    </button>
+                </div>
+
+                <!-- CSV Upload Mode -->
+                <div id="csv-upload-mode" class="upload-mode active">
+                    <form id="upload-form" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="csv-file">Select CSV File:</label>
+                            <input type="file" id="csv-file" name="csv_file" accept=".csv">
+                            <div class="file-info">
+                                <small>Format: job_id, psd_path, aepx_path, output_name, client_name, project_name, priority, notes</small>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="user-id">Your User ID:</label>
-                        <input type="text" id="user-id" name="user_id" placeholder="e.g., john_doe" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Upload & Validate</button>
-                    </div>
-                </form>
+                        <div class="form-group">
+                            <label for="user-id">Your User ID:</label>
+                            <input type="text" id="user-id" name="user_id" placeholder="e.g., john_doe" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Upload & Validate</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- File Picker Mode -->
+                <div id="file-picker-mode" class="upload-mode" style="display: none;">
+                    <form id="file-picker-form">
+                        <div class="form-group">
+                            <label>Pairing Mode:</label>
+                            <select id="pairing-mode" class="form-control">
+                                <option value="template">Single Template (one AEPX for all PSDs)</option>
+                                <option value="one-to-one">One-to-One (pair each PSD with AEPX)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="psd-paths">PSD File Paths (one per line):</label>
+                            <textarea id="psd-paths" class="form-control" rows="6"
+                                placeholder="/path/to/file1.psd&#10;/path/to/file2.psd&#10;/path/to/file3.psd" required></textarea>
+                            <div class="file-info">
+                                <small>Enter full paths to PSD files, one per line</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="aepx-paths">AEPX Template Path(s) (one per line):</label>
+                            <textarea id="aepx-paths" class="form-control" rows="3"
+                                placeholder="/path/to/template.aepx" required></textarea>
+                            <div class="file-info">
+                                <small id="aepx-help">Enter template path (or multiple paths for one-to-one mode)</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fp-client-name">Client Name (optional):</label>
+                                <input type="text" id="fp-client-name" class="form-control" placeholder="e.g., Acme Corp">
+                            </div>
+                            <div class="form-group">
+                                <label for="fp-project-name">Project Name (optional):</label>
+                                <input type="text" id="fp-project-name" class="form-control" placeholder="e.g., Q4 Campaign">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fp-priority">Priority:</label>
+                                <select id="fp-priority" class="form-control">
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="fp-user-id">Your User ID:</label>
+                                <input type="text" id="fp-user-id" class="form-control" placeholder="e.g., john_doe" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fp-notes">Notes (optional):</label>
+                            <textarea id="fp-notes" class="form-control" rows="2"
+                                placeholder="Any additional notes..."></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Build & Validate Batch</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div id="upload-progress" class="upload-progress" style="display: none;">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progress-fill"></div>
                     </div>
-                    <div class="progress-text" id="progress-text">Uploading...</div>
+                    <div class="progress-text" id="progress-text">Processing...</div>
                 </div>
                 <div id="upload-result" class="upload-result" style="display: none;"></div>
             </div>

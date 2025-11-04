@@ -5,9 +5,12 @@ Handles batch upload, validation, and processing initiation.
 """
 
 import time
+import csv
+import io
 from pathlib import Path
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
+from datetime import datetime
 
 # Import services from web_app (they're initialized there)
 from config.container import container
@@ -97,6 +100,157 @@ def upload_batch_csv():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@batch_bp.route('/api/batch/build-from-files', methods=['POST'])
+def build_batch_from_files():
+    """
+    Build and validate a batch from selected PSD and AEPX files.
+
+    Automatically generates CSV from file selections and optional metadata.
+    """
+    try:
+        batch_validator, job_service, _ = get_services()
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        psd_files = data.get('psd_files', [])
+        aepx_files = data.get('aepx_files', [])
+
+        if not psd_files:
+            return jsonify({
+                'success': False,
+                'error': 'No PSD files provided'
+            }), 400
+
+        if not aepx_files:
+            return jsonify({
+                'success': False,
+                'error': 'No AEPX template files provided'
+            }), 400
+
+        # Get optional metadata
+        client_name = data.get('client_name', '')
+        project_name = data.get('project_name', '')
+        priority = data.get('priority', 'medium')
+        notes = data.get('notes', '')
+        pairing_mode = data.get('pairing_mode', 'one-to-one')  # 'one-to-one' or 'template'
+        user_id = data.get('user_id', 'anonymous')
+
+        # Generate CSV rows
+        csv_rows = []
+
+        if pairing_mode == 'template':
+            # Use first AEPX as template for all PSDs
+            template_aepx = aepx_files[0]
+            for idx, psd_path in enumerate(psd_files):
+                job_id = _generate_job_id(psd_path, idx)
+                output_name = f"{job_id}.aep"
+                csv_rows.append({
+                    'job_id': job_id,
+                    'psd_path': psd_path,
+                    'aepx_path': template_aepx,
+                    'output_name': output_name,
+                    'client_name': client_name,
+                    'project_name': project_name,
+                    'priority': priority,
+                    'notes': notes
+                })
+        else:
+            # One-to-one pairing
+            min_count = min(len(psd_files), len(aepx_files))
+            for idx in range(min_count):
+                psd_path = psd_files[idx]
+                aepx_path = aepx_files[idx]
+                job_id = _generate_job_id(psd_path, idx)
+                output_name = f"{job_id}.aep"
+                csv_rows.append({
+                    'job_id': job_id,
+                    'psd_path': psd_path,
+                    'aepx_path': aepx_path,
+                    'output_name': output_name,
+                    'client_name': client_name,
+                    'project_name': project_name,
+                    'priority': priority,
+                    'notes': notes
+                })
+
+        if not csv_rows:
+            return jsonify({
+                'success': False,
+                'error': 'No valid file pairs could be generated'
+            }), 400
+
+        # Generate CSV in memory
+        csv_buffer = io.StringIO()
+        fieldnames = ['job_id', 'psd_path', 'aepx_path', 'output_name',
+                     'client_name', 'project_name', 'priority', 'notes']
+        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_rows)
+
+        # Save CSV file
+        csv_filename = f"batch_from_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        csv_dir = Path('data/batches')
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = csv_dir / csv_filename
+
+        with open(csv_path, 'w', newline='') as f:
+            f.write(csv_buffer.getvalue())
+
+        container.main_logger.info(f"CSV generated from files: {csv_path} by {user_id}")
+
+        # Validate CSV
+        validation_result = batch_validator.validate_csv(str(csv_path))
+
+        if not validation_result['valid']:
+            return jsonify({
+                'success': False,
+                'validation': validation_result,
+                'message': f"Batch validation failed: {validation_result['invalid_jobs']} invalid jobs"
+            }), 400
+
+        # Create batch and jobs in database
+        batch_id = job_service.create_batch_from_csv(
+            batch_id=validation_result['batch_id'],
+            csv_path=str(csv_path),
+            csv_filename=csv_filename,
+            jobs=validation_result['jobs'],
+            validation_result=validation_result,
+            user_id=user_id
+        )
+
+        container.main_logger.info(f"Batch created from files: {batch_id} with {validation_result['valid_jobs']} jobs")
+
+        return jsonify({
+            'success': True,
+            'batch_id': batch_id,
+            'validation': validation_result,
+            'csv_filename': csv_filename,
+            'message': f"Batch created successfully with {validation_result['valid_jobs']} jobs"
+        })
+
+    except Exception as e:
+        container.main_logger.error(f"Build from files failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def _generate_job_id(psd_path: str, index: int) -> str:
+    """Generate a unique job ID from PSD filename."""
+    psd_name = Path(psd_path).stem
+    # Clean filename to alphanumeric + underscore/dash
+    clean_name = ''.join(c if c.isalnum() or c in '_-' else '_' for c in psd_name)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{clean_name}_{timestamp}_{index:03d}"
 
 
 @batch_bp.route('/api/batch/<batch_id>/start-processing', methods=['POST'])

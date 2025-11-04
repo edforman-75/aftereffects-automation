@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDashboard();
     startAutoRefresh();
     setupUploadForm();
+    setupFilePickerForm();
+    setupPairingModeHandler();
 });
 
 // Load all dashboard data
@@ -399,8 +401,11 @@ function closeJobModal() {
 function showUploadModal() {
     document.getElementById('upload-modal').classList.add('show');
     document.getElementById('upload-form').reset();
+    document.getElementById('file-picker-form').reset();
     document.getElementById('upload-progress').style.display = 'none';
     document.getElementById('upload-result').style.display = 'none';
+    // Default to CSV upload mode
+    switchUploadMode('csv');
 }
 
 function closeUploadModal() {
@@ -472,6 +477,165 @@ function setupUploadForm() {
             resultDiv.style.display = 'block';
             resultDiv.className = 'upload-result error';
             resultDiv.innerHTML = '<strong>❌ Error!</strong><br>Failed to upload CSV file';
+        }
+    });
+}
+
+// Switch upload mode
+function switchUploadMode(mode) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update mode panels
+    if (mode === 'csv') {
+        document.getElementById('csv-upload-mode').classList.add('active');
+        document.getElementById('file-picker-mode').classList.remove('active');
+    } else if (mode === 'files') {
+        document.getElementById('csv-upload-mode').classList.remove('active');
+        document.getElementById('file-picker-mode').classList.add('active');
+    }
+
+    // Reset progress and results
+    document.getElementById('upload-progress').style.display = 'none';
+    document.getElementById('upload-result').style.display = 'none';
+}
+
+// Setup pairing mode handler
+function setupPairingModeHandler() {
+    const pairingSelect = document.getElementById('pairing-mode');
+    const aepxHelp = document.getElementById('aepx-help');
+
+    pairingSelect.addEventListener('change', function() {
+        if (this.value === 'template') {
+            aepxHelp.textContent = 'Enter one template path (will be used for all PSDs)';
+        } else {
+            aepxHelp.textContent = 'Enter one path per line (must match number of PSDs)';
+        }
+    });
+}
+
+// Setup file picker form
+function setupFilePickerForm() {
+    const form = document.getElementById('file-picker-form');
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const progressDiv = document.getElementById('upload-progress');
+        const resultDiv = document.getElementById('upload-result');
+
+        // Get form data
+        const psdPaths = document.getElementById('psd-paths').value
+            .split('\n')
+            .map(p => p.trim())
+            .filter(p => p.length > 0);
+
+        const aepxPaths = document.getElementById('aepx-paths').value
+            .split('\n')
+            .map(p => p.trim())
+            .filter(p => p.length > 0);
+
+        const pairingMode = document.getElementById('pairing-mode').value;
+        const clientName = document.getElementById('fp-client-name').value.trim();
+        const projectName = document.getElementById('fp-project-name').value.trim();
+        const priority = document.getElementById('fp-priority').value;
+        const notes = document.getElementById('fp-notes').value.trim();
+        const userId = document.getElementById('fp-user-id').value.trim();
+
+        // Validation
+        if (psdPaths.length === 0) {
+            alert('Please enter at least one PSD file path');
+            return;
+        }
+
+        if (aepxPaths.length === 0) {
+            alert('Please enter at least one AEPX template path');
+            return;
+        }
+
+        if (pairingMode === 'one-to-one' && psdPaths.length !== aepxPaths.length) {
+            alert(`For one-to-one pairing, you need the same number of PSD and AEPX files.\nPSDs: ${psdPaths.length}, AEPXs: ${aepxPaths.length}`);
+            return;
+        }
+
+        if (!userId) {
+            alert('Please enter your User ID');
+            return;
+        }
+
+        // Show progress
+        progressDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
+        document.getElementById('progress-fill').style.width = '30%';
+        document.getElementById('progress-text').textContent = 'Building batch from files...';
+
+        try {
+            const response = await fetch('/api/batch/build-from-files', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    psd_files: psdPaths,
+                    aepx_files: aepxPaths,
+                    pairing_mode: pairingMode,
+                    client_name: clientName,
+                    project_name: projectName,
+                    priority: priority,
+                    notes: notes,
+                    user_id: userId
+                })
+            });
+
+            const data = await response.json();
+
+            // Update progress
+            document.getElementById('progress-fill').style.width = '100%';
+            document.getElementById('progress-text').textContent = 'Batch created!';
+
+            // Show result
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+
+                if (data.success) {
+                    resultDiv.className = 'upload-result success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Success!</strong><br>
+                        Batch ID: ${data.batch_id}<br>
+                        CSV File: ${data.csv_filename}<br>
+                        Valid Jobs: ${data.validation.valid_jobs}/${data.validation.total_jobs}
+                        <br><br>
+                        <button class="btn btn-primary" onclick="startBatchProcessing('${data.batch_id}')">
+                            Start Processing
+                        </button>
+                    `;
+                } else {
+                    resultDiv.className = 'upload-result error';
+                    resultDiv.innerHTML = `
+                        <strong>❌ Error!</strong><br>
+                        ${data.message || data.error || 'Build failed'}
+                        ${data.validation && data.validation.errors ?
+                            '<br><br>' + data.validation.errors.map(e =>
+                                `Row ${e.row}: ${e.errors.join(', ')}`
+                            ).join('<br>')
+                            : ''
+                        }
+                    `;
+                }
+            }, 500);
+
+        } catch (error) {
+            console.error('Build from files error:', error);
+            progressDiv.style.display = 'none';
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'upload-result error';
+            resultDiv.innerHTML = '<strong>❌ Error!</strong><br>Failed to build batch from files';
         }
     });
 }
