@@ -16,6 +16,10 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 from psd_tools import PSDImage
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Legacy module imports (still used by some functions)
 from modules.phase1.psd_parser import parse_psd
@@ -4520,17 +4524,20 @@ def review_matching(job_id):
     return render_template('stage2_review.html', job_id=job_id)
 
 if __name__ == '__main__':
+    # Get port from environment variable or use default
+    port = int(os.getenv('PORT', '5001'))
+
     print("="*70)
     print("After Effects Automation - Web Interface")
     print("="*70)
-    print("\n🌐 Starting server at http://localhost:5001")
+    print(f"\n🌐 Starting server at http://localhost:{port}")
     print("\n📝 Instructions:")
-    print("   1. Open http://localhost:5001 in your browser")
+    print(f"   1. Open http://localhost:{port} in your browser")
     print("   2. Upload your PSD and AEPX files")
     print("   3. Review mappings and conflicts")
     print("   4. Generate and download ExtendScript")
     print("\n⚠️  Press Ctrl+C to stop the server")
     print("="*70 + "\n")
 
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=port)
 
