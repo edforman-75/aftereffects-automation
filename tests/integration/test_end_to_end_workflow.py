@@ -39,8 +39,15 @@ def test_batch(in_memory_db):
     """Create a test batch."""
     batch = Batch(
         batch_id='e2e-batch-1',
-        name='End-to-End Test Batch',
-        created_at=datetime.utcnow()
+        csv_filename='test_batch.csv',
+        csv_path='/test/data/test_batch.csv',
+        total_jobs=1,
+        valid_jobs=1,
+        invalid_jobs=0,
+        status='validated',
+        uploaded_by='test-user',
+        uploaded_at=datetime.utcnow(),
+        validated_at=datetime.utcnow()
     )
     in_memory_db.add(batch)
     in_memory_db.commit()
@@ -55,9 +62,9 @@ def test_job(in_memory_db, test_batch):
         batch_id=test_batch.batch_id,
         psd_path='/test/data/sample.psd',
         aepx_path='/test/data/template.aepx',
+        output_name='test_output',
         current_stage=0,
-        status='pending',
-        created_at=datetime.utcnow()
+        status='pending'
     )
     in_memory_db.add(job)
     in_memory_db.commit()
@@ -539,6 +546,7 @@ class TestBatchProcessing:
                 batch_id=test_batch.batch_id,
                 psd_path=f'/test/data/sample{i}.psd',
                 aepx_path=f'/test/data/template{i}.aepx',
+                output_name=f'output_{i}',
                 current_stage=0,
                 status='pending'
             )

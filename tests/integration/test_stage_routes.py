@@ -67,8 +67,15 @@ def sample_batch(test_db_session):
     """Create a sample batch for testing."""
     batch = Batch(
         batch_id='test-batch-1',
-        name='Test Batch',
-        created_at=datetime.utcnow()
+        csv_filename='test_batch.csv',
+        csv_path='/test/data/test_batch.csv',
+        total_jobs=10,
+        valid_jobs=10,
+        invalid_jobs=0,
+        status='validated',
+        uploaded_by='test-user',
+        uploaded_at=datetime.utcnow(),
+        validated_at=datetime.utcnow()
     )
     test_db_session.add(batch)
     test_db_session.commit()
@@ -83,6 +90,7 @@ def sample_job_stage1(test_db_session, sample_batch):
         batch_id=sample_batch.batch_id,
         psd_path='/path/to/test.psd',
         aepx_path='/path/to/template.aepx',
+        output_name='test_output',
         current_stage=1,
         status='completed',
         stage1_results=json.dumps({
@@ -105,6 +113,7 @@ def sample_job_stage2(test_db_session, sample_batch):
         batch_id=sample_batch.batch_id,
         psd_path='/path/to/test.psd',
         aepx_path='/path/to/template.aepx',
+        output_name='test_output',
         current_stage=2,
         status='awaiting_review',
         stage1_results=json.dumps({
@@ -126,6 +135,7 @@ def sample_job_stage4(test_db_session, sample_batch):
         batch_id=sample_batch.batch_id,
         psd_path='/path/to/test.psd',
         aepx_path='/path/to/template.aepx',
+        output_name='test_output',
         current_stage=4,
         status='awaiting_approval',
         stage2_approved_matches=json.dumps([
@@ -151,6 +161,7 @@ def sample_job_stage5(test_db_session, sample_batch):
         batch_id=sample_batch.batch_id,
         psd_path='/path/to/test.psd',
         aepx_path='/path/to/template.aepx',
+        output_name='test_output',
         current_stage=5,
         status='processing',
         stage2_approved_matches=json.dumps([
@@ -170,6 +181,7 @@ def sample_job_stage6(test_db_session, sample_batch):
         batch_id=sample_batch.batch_id,
         psd_path='/path/to/test.psd',
         aepx_path='/path/to/template.aepx',
+        output_name='test_output',
         current_stage=6,
         status='awaiting_approval',
         stage5_extendscript='var test = "script";',
@@ -577,6 +589,7 @@ class TestConcurrentStageProcessing:
                 batch_id=sample_batch.batch_id,
                 psd_path='/path/to/test.psd',
                 aepx_path='/path/to/template.aepx',
+        output_name='test_output',
                 current_stage=2,
                 status='awaiting_review',
                 stage1_results=json.dumps({'matches': []})
